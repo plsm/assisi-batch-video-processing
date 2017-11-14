@@ -17,7 +17,7 @@ void Histogram::read (FILE *file)
 	}
 }
 
-void Histogram::write (FILE *file)
+void Histogram::write (FILE *file) const
 {
 	fprintf (file, "%d", (int) (*this) [0]);
 	for (unsigned int i = 1; i < NUMBER_COLOUR_LEVELS; i++)
@@ -33,5 +33,26 @@ int Histogram::most_common_colour () const
 			best = (*this) [colour];
 			result = colour;
 		}
+	return result;
+}
+
+void write_vector_histograms (const std::string &filename, const VectorHistograms *vh)
+{
+	FILE *f = fopen (filename.c_str (), "w");
+	for (const Histogram &h : *vh) {
+		h.write (f);
+		fprintf (f, "\n");
+	}
+	fclose (f);
+}
+
+VectorHistograms *read_vector_histograms (const std::string &filename, size_t size)
+{
+	VectorHistograms *result = new VectorHistograms (size);
+	FILE *f = fopen (filename.c_str (), "r");
+	for (unsigned int index = 0; index < size; index++) {
+		result->at (index).read (f);
+	}
+	fclose (f);
 	return result;
 }

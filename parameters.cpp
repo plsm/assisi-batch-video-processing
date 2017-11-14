@@ -8,11 +8,13 @@
 using namespace std;
 
 static string verify_slash_at_end (const string &folder);
+static vector<cv::Mat> read_masks (const RunParameters &run_parameters, const UserParameters &parameters);
 
-RunParameters::RunParameters (const string &frame_file_type, unsigned int number_ROIs, unsigned int delta_frame, unsigned int number_frames, unsigned same_colour_threshold):
-	frame_file_type (frame_file_type),
-	number_ROIs (number_ROIs),
-	delta_frame (delta_frame),
+RunParameters::RunParameters (const string csv_filename, const string &frame_file_type, unsigned int number_ROIs, unsigned int delta_frame, unsigned int number_frames, unsigned same_colour_threshold):
+   csv_filename (csv_filename),
+   frame_file_type (frame_file_type),
+   number_ROIs (number_ROIs),
+   delta_frame (delta_frame),
    number_frames (number_frames),
    same_colour_threshold (same_colour_threshold),
    same_colour_level (round ((NUMBER_COLOUR_LEVELS * same_colour_threshold) / 100.0))
@@ -22,6 +24,7 @@ RunParameters::RunParameters (const string &frame_file_type, unsigned int number
 RunParameters RunParameters::parse (int argc, char *argv[])
 {
 	bool ok = true;
+	const char *csv_filename = "data-plots.csv";
 	const char *frame_file_type = "png";
 	unsigned int number_ROIs = 3;
 	unsigned int same_colour_threshold = 15;
@@ -29,6 +32,7 @@ RunParameters RunParameters::parse (int argc, char *argv[])
 	unsigned int number_frames = 730;
 	do {
 		static struct option long_options[] = {
+		   {"csv-file"       , required_argument, 0, 'a'},
 		        {"frame-file-type"       , required_argument, 0, 'f'},
 		        {"number-ROIs"           , required_argument, 0, 'r'},
 		        {"delta-frame"           , required_argument, 0, 'd'},
@@ -36,7 +40,7 @@ RunParameters RunParameters::parse (int argc, char *argv[])
 		        {"same-colour-threshold" , required_argument, 0, 'c'},
 		        {0,         0,                 0,  0 }
 		};
-		int c = getopt_long (argc, argv, "p:f:c:r:d:", long_options, 0);
+		int c = getopt_long (argc, argv, "a:f:r:d:n:c:", long_options, 0);
 		switch (c) {
 		case '?':
 			break;
@@ -46,6 +50,9 @@ RunParameters RunParameters::parse (int argc, char *argv[])
 		case ':':
 			fprintf (stderr, "Missing argument\n");
 			exit (EXIT_FAILURE);
+			break;
+		case 'a':
+			csv_filename = optarg;
 			break;
 		case 'f':
 			frame_file_type = optarg;
@@ -63,31 +70,35 @@ RunParameters RunParameters::parse (int argc, char *argv[])
 			break;
 		}
 	} while (ok);
-	return RunParameters (frame_file_type, number_ROIs, delta_frame, number_frames, same_colour_threshold);
+	return RunParameters (csv_filename, frame_file_type, number_ROIs, delta_frame, number_frames, same_colour_threshold);
 }
 
-UserParameters::UserParameters (const string &folder, unsigned int x1, unsigned int y1, unsigned int x2, unsigned int y2):
+UserParameters::UserParameters (const RunParameters &run_parameters, const string &folder, unsigned int x1, unsigned int y1, unsigned int x2, unsigned int y2):
    folder (folder + verify_slash_at_end (folder)),
    x1 (x1),
    y1 (y1),
    x2 (x2),
-   y2 (y2)
+   y2 (y2),
+   background (read_image (this->background_filename (run_parameters))),
+   masks (read_masks (run_parameters, *this))
 {
 }
 
-UserParameters UserParameters::parse (const string &csv_row)
+UserParameters *UserParameters::parse (const RunParameters &run_parameters, const string &csv_row)
 {
 	std::stringstream          lineStream (csv_row);
 	std::string                cell;
 	vector<string> cs;
 	while (std::getline (lineStream, cell, ',')) {
-	  cs.push_back (cell);
+		cs.push_back (cell);
 	}
 	if (cs.size () != 5) {
 		cerr << "The number of cells is different from 5!\n";
 		exit (EXIT_FAILURE);
 	}
-	return UserParameters (cs [0], std::stoi (cs [1]), std::stoi (cs [2]), std::stoi (cs [3]), std::stoi (cs [4]));
+	std::string folder = cs [0];
+	folder = folder.substr (1, folder.size () - 2);
+	return new UserParameters (run_parameters, folder, std::stoi (cs [1]), std::stoi (cs [2]), std::stoi (cs [3]), std::stoi (cs [4]));
 }
 
 static string verify_slash_at_end (const string &folder)
@@ -98,4 +109,13 @@ static string verify_slash_at_end (const string &folder)
 		return "";
 	else
 		return "/";
+}
+
+static vector<Image> read_masks (const RunParameters &run_parameters, const UserParameters &user_parameters)
+{
+	vector<Image> result (run_parameters.number_ROIs);
+	for (unsigned int index_mask = 0; index_mask < run_parameters.number_ROIs; index_mask++) {
+		result [index_mask] = read_image (user_parameters.mask_filename (index_mask));
+	}
+	return result;
 }

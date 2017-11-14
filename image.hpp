@@ -9,6 +9,8 @@ extern const unsigned int NUMBER_COLOUR_LEVELS;
 
 typedef cv::Mat Image;
 
+class Histogram;
+
 inline Image read_image (const std::string &filename)
 {
 	if (access (filename.c_str (), F_OK) != 0) {
@@ -17,5 +19,7 @@ inline Image read_image (const std::string &filename)
 	}
 	return cv::imread (filename, CV_LOAD_IMAGE_GRAYSCALE);
 }
+
+void compute_histogram (const Image &image, Histogram &histogram);
 
 #endif

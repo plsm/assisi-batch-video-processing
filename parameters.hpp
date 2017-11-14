@@ -13,15 +13,15 @@
  */
 class RunParameters
 {
-	unsigned int compute_number_frames () const;
 public:
+	const std::string csv_filename;
 	const std::string frame_file_type;
 	const unsigned int number_ROIs;
 	const unsigned int delta_frame;
 	const unsigned int number_frames;
 	const unsigned int same_colour_threshold;
 	const unsigned int same_colour_level;
-	RunParameters (const std::string &frame_file_type, unsigned int number_ROIs, unsigned int delta_frame, unsigned int number_frames, unsigned same_colour_threshold);
+	RunParameters (const std::string csv_filename, const std::string &frame_file_type, unsigned int number_ROIs, unsigned int delta_frame, unsigned int number_frames, unsigned same_colour_threshold);
 	static RunParameters parse (int argc, char *argv[]);
 };
 
@@ -48,7 +48,7 @@ class UserParameters
 		      std::to_string (this->x1) + "x" + std::to_string (this->y1) + "-" +
 		      std::to_string (this->x2) + "x" + std::to_string (this->y2);
 	}
-	UserParameters (const std::string &folder, unsigned int x1, unsigned int y1, unsigned int x2, unsigned int y2);
+	UserParameters (const RunParameters &run_parameters, const std::string &folder, unsigned int x1, unsigned int y1, unsigned int x2, unsigned int y2);
 public:
 	/**
 	 * @brief folder Contains the folder where the data of a particular run of an
@@ -65,7 +65,9 @@ public:
 	const unsigned int y1;
 	const unsigned int x2;
 	const unsigned int y2;
-	static UserParameters parse (const std::string &csv_row);
+	const Image background;
+	const std::vector<Image> masks;
+	static UserParameters *parse (const RunParameters &, const std::string &csv_row);
 	inline std::string background_filename (const RunParameters &parameters) const
 	{
 		return folder + "background." + parameters.frame_file_type;
@@ -156,7 +158,18 @@ public:
 		      "_LC"
 		      ".csv";
 	}
-	inline std::string bee_speed_filename (const RunParameters &parameters) const
+	inline std::string histograms_frames_masked_ROIs_bee_speed_raw_filename (const RunParameters &parameters) const
+	{
+		return
+		      this->folder +
+		      "histograms-frames"
+		      "_masked-ROIs"
+		      "_bee-speed"
+		      "_raw"
+		      "_DF=" + std::to_string (parameters.delta_frame) +
+		      ".csv";
+	}
+	inline std::string histograms_frames_masked_ROIs_bee_speed_histogram_equalisation_filename (const RunParameters &parameters) const
 	{
 		return
 		      this->folder +
@@ -167,7 +180,7 @@ public:
 		      "_DF=" + std::to_string (parameters.delta_frame) +
 		      ".csv";
 	}
-	inline std::string number_bees_filename () const
+	inline std::string histograms_frames_masked_ROIs_number_bees_histogram_equalisation_filename () const
 	{
 		return
 		      this->folder +
@@ -227,17 +240,24 @@ public:
 		      rectangle () +
 		      ".csv";
 	}
-	template<typename A>
-	inline void fold1_frames (const RunParameters &parameters, void (*func) (const Image &, A), A acc1) const
+	template<typename A, typename B, typename C>
+	inline void fold3_frames (const RunParameters &parameters, void (*func) (const Image &, A, B, C), A acc1, B acc2, C acc3) const
 	{
 		for (unsigned int index_frame = 1; index_frame <= parameters.number_frames; index_frame++) {
 			std::string filename = this->frame_filename (parameters, index_frame);
 			Image frame = read_image (filename);
-			func (frame, acc1);
-			fprintf (stderr, "\r    %d", index_frame);
-			fflush (stderr);
+			func (frame, acc1, acc2, acc3);
+			fprintf (stdout, "\r      %d", index_frame);
+			fflush (stdout);
 		}
-		fprintf (stderr, "\n");
+		fprintf (stdout, "\n");
+	}
+	template<typename A, typename B, typename C>
+	inline void fold3_ROIs (const RunParameters &parameters, void (*func) (const Image &, A, B, C), A acc1, B acc2, C acc3) const
+	{
+		for (unsigned int index_mask = 0; index_mask < parameters.number_ROIs; index_mask++) {
+			func (this->masks [index_mask], acc1, acc2, acc3);
+		}
 	}
 	/**
 	 * @brief rectangle_user return a string representing the rectangle to be
