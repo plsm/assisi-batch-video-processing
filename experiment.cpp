@@ -19,6 +19,11 @@ void compute_histograms_number_bees_2 (const Image &ROI_mask, Image *number_bees
 static void compute_features_number_bees_bee_speed_1 (unsigned int index_frame, const Experiment *experiment, const VectorHistograms *histograms_number_bees, const VectorHistograms *histograms_bee_speed, VectorSeries *result);
 static void compute_features_number_bees_bee_speed_2 (unsigned int index_ROI, unsigned int index_frame, const RunParameters *run, const VectorHistograms *histograms_number_bees, const VectorHistograms *histograms_bee_speed, VectorSeries *result);
 
+static void compute_total_number_bees_in_ROIs_12 (unsigned int index_frame, unsigned int index_mask, const VectorSeries *features_number_bees_bee_speed, Series *result);
+
+static Series *read_series (const string &filename, size_t series_length);
+static void write_series (const string &filename, const Series &s);
+
 static VectorSeries *read_series (const string &filename, size_t number_series, size_t series_length);
 static void write_series (const string &filename, const VectorSeries &vs);
 
@@ -40,15 +45,17 @@ void Experiment::process_data_plots_file ()
 	while (csv_stream) {
 		string csv_row;
 		std::getline (csv_stream, csv_row);
-		delete this->user;
 		this->user = UserParameters::parse (this->run, csv_row);
 		cout << "Processing folder " << this->user->folder << "...\n";
 		VectorHistograms *bee_speed = this->compute_histograms_frames_masked_ROIs_bee_speed ();
 		VectorHistograms *number_bees = this->compute_histograms_frames_masked_ROIs_number_bees ();
 		VectorSeries *features = this->compute_features_number_bees_bee_speed (*number_bees, *bee_speed);
+		Series *total_bees = this->compute_total_number_bees_in_ROIs (features);
 		delete bee_speed;
 		delete number_bees;
 		delete features;
+		delete total_bees;
+		delete this->user;
 	}
 }
 
@@ -107,6 +114,25 @@ VectorSeries *Experiment::compute_features_number_bees_bee_speed (const VectorHi
 	else {
 		result = new VectorSeries (2 * this->run.number_ROIs);
 		this->user->fold4_frames_I (this->run, compute_features_number_bees_bee_speed_1, this, &histograms_number_bees, &histograms_bee_speed, result);
+		cout << "    Writing data to file " << filename << "...\n";
+		write_series (filename, *result);
+	}
+	return result;
+}
+
+Series *Experiment::compute_total_number_bees_in_ROIs (const VectorSeries *features_number_bees_bee_speed)
+{
+	Series *result;
+	cout << "  Computing total number of bees in all ROIs...\n";
+	string filename = this->user->total_number_bees_in_all_ROIs_histogram_equalisation (this->run);
+	if (access (filename.c_str (), F_OK) == 0) {
+		cout << "    Reading data from file " << filename << "...\n";
+		result = read_series (filename, this->run.number_frames);
+	}
+	else {
+		cout << "    Using number of bees and bee movement data...\n";
+		result = new Series (this->run.number_frames, 0);
+		this->run.fold2_frames_ROIs (compute_total_number_bees_in_ROIs_12, features_number_bees_bee_speed, result);
 		cout << "    Writing data to file " << filename << "...\n";
 		write_series (filename, *result);
 	}
@@ -185,6 +211,32 @@ void compute_features_number_bees_bee_speed_2 (unsigned int index_ROI, unsigned 
 	result->at (index_bee_speed).push_back (bee_speed_value);
 }
 
+void compute_total_number_bees_in_ROIs_12 (unsigned int index_frame, unsigned int index_mask, const VectorSeries *features_number_bees_bee_speed, Series *result)
+{
+	result->at (index_frame) += features_number_bees_bee_speed->at (2 * index_mask).at (index_frame);
+}
+
+Series *read_series (const string &filename, size_t series_length)
+{
+	Series *result = new Series (series_length);
+	FILE *f = fopen (filename.c_str (), "r");
+	for (unsigned int index = 0; index < series_length; index++) {
+		fscanf (f, "%d", &((*result) [index]));
+	}
+	fclose (f);
+	return result;
+}
+
+void write_series (const string &filename, const Series &s)
+{
+	FILE *f = fopen (filename.c_str (), "w");
+	for (int value : s) {
+		fprintf (f, "%d\n", value);
+	}
+	fclose (f);
+	chmod (filename.c_str (), S_IRUSR);
+}
+
 VectorSeries *read_series (const string &filename, size_t number_series, size_t series_length)
 {
 	VectorSeries *result = new VectorSeries (number_series);
@@ -192,16 +244,18 @@ VectorSeries *read_series (const string &filename, size_t number_series, size_t 
 	for (unsigned int index = 0; index < series_length; index++) {
 		for (size_t series = 0; series < number_series; series++) {
 			int value;
-			if (series == 0)
+			if (series == 0) {
 				if (fscanf (f, "%d", &value) != 1) {
 					cerr << "Failed reading value #" << index * number_series + series + 1 << " from file " << filename << "!\n";
 					exit (EXIT_FAILURE);
 				}
-			else
+			}
+			else {
 				if (fscanf (f, ",%d", &value) != 1) {
 					cerr << "Failed reading value #" << index * number_series + series + 1 << " from file " << filename << "!\n";
 					exit (EXIT_FAILURE);
 				}
+			}
 			result->at (series).push_back (value);
 		}
 	}

@@ -1,7 +1,10 @@
 #include <sys/stat.h>
+#include <iostream>
 
 #include "histogram.hpp"
 #include "image.hpp"
+
+using namespace std;
 
 Histogram::Histogram ():
    vector<double> ((size_type) NUMBER_COLOUR_LEVELS, 0.0)

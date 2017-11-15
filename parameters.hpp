@@ -23,6 +23,18 @@ public:
 	const unsigned int same_colour_level;
 	RunParameters (const std::string csv_filename, const std::string &frame_file_type, unsigned int number_ROIs, unsigned int delta_frame, unsigned int number_frames, unsigned same_colour_threshold);
 	static RunParameters parse (int argc, char *argv[]);
+	template<typename A, typename B>
+	inline void fold2_frames_ROIs (void (*func) (unsigned int, unsigned int, A, B), A acc1, B acc2) const
+	{
+		for (unsigned int index_frame = 0; index_frame < this->number_frames; index_frame++) {
+			for (unsigned int index_mask = 0; index_mask < this->number_ROIs; index_mask++) {
+				func (index_frame, index_mask, acc1, acc2);
+			}
+			fprintf (stdout, "\r      %d", index_frame + 1);
+			fflush (stdout);
+		}
+		fprintf (stdout, "\n");
+	}
 };
 
 /**
@@ -230,6 +242,15 @@ public:
 		      "_light-calibration-most-common-colour" +
 		      rectangle () +
 		      "_LC" +
+		      ".csv";
+	}
+	inline std::string total_number_bees_in_all_ROIs_histogram_equalisation (const RunParameters &parameters) const
+	{
+		return
+		      this->folder +
+		      "total-number-bees"
+		      "_SCT=" + std::to_string (parameters.same_colour_threshold) +
+		      "_histogram-equalization"
 		      ".csv";
 	}
 	inline std::string highest_colour_level_frames_rect_filename () const
