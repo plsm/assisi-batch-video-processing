@@ -1,8 +1,13 @@
 #ifndef EXPERIMENT_HPP
 #define EXPERIMENT_HPP
 
+#include <vector>
+
 #include "parameters.hpp"
 #include "histogram.hpp"
+
+typedef std::vector<int> Series;
+typedef std::vector<Series> VectorSeries;
 
 class Experiment
 {
@@ -13,6 +18,8 @@ public:
 	void process_data_plots_file ();
 private:
 	VectorHistograms *compute_histograms_frames_masked_ROIs_bee_speed () const;
+	VectorHistograms *compute_histograms_frames_masked_ROIs_number_bees () const;
+	VectorSeries *compute_features_number_bees_bee_speed (const VectorHistograms &histograms_number_bees, const VectorHistograms &histograms_bee_speed) const;
 };
 
 #endif // EXPERIMENT_HPP

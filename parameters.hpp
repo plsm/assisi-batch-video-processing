@@ -252,11 +252,35 @@ public:
 		}
 		fprintf (stdout, "\n");
 	}
+	template<typename A, typename B, typename C, typename D>
+	inline void fold4_frames_I (const RunParameters &parameters, void (*func) (unsigned int, A, B, C, D), A acc1, B acc2, C acc3, D acc4) const
+	{
+		for (unsigned int index_frame = 0; index_frame < parameters.number_frames; index_frame++) {
+			func (index_frame, acc1, acc2, acc3, acc4);
+			fprintf (stdout, "\r      %d", index_frame + 1);
+			fflush (stdout);
+		}
+		fprintf (stdout, "\n");
+	}
+	template<typename A, typename B, typename C, typename D, typename E>
+	inline void fold5_ROIs_I (const RunParameters &parameters, void (*func) (unsigned int, A, B, C, D, E), A acc1, B acc2, C acc3, D acc4, E acc5) const
+	{
+		for (unsigned int index_mask = 0; index_mask < parameters.number_ROIs; index_mask++) {
+			func (index_mask, acc1, acc2, acc3, acc4, acc5);
+		}
+	}
 	template<typename A, typename B, typename C>
 	inline void fold3_ROIs (const RunParameters &parameters, void (*func) (const Image &, A, B, C), A acc1, B acc2, C acc3) const
 	{
 		for (unsigned int index_mask = 0; index_mask < parameters.number_ROIs; index_mask++) {
 			func (this->masks [index_mask], acc1, acc2, acc3);
+		}
+	}
+	template<typename A, typename B>
+	inline void fold2_ROIs (const RunParameters &parameters, void (*func) (const Image &, A, B), A acc1, B acc2) const
+	{
+		for (unsigned int index_mask = 0; index_mask < parameters.number_ROIs; index_mask++) {
+			func (this->masks [index_mask], acc1, acc2);
 		}
 	}
 	/**
