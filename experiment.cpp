@@ -14,6 +14,7 @@ void compute_histograms_bee_speed_1 (const Image &current_frame, const Experimen
 void compute_histograms_bee_speed_2 (const Image &ROI_mask, bool enough_frames, Image *bee_speed, VectorHistograms *result);
 
 void compute_histograms_number_bees_1 (const Image &current_frame_raw, const Experiment *experiment, Image *background, VectorHistograms *result);
+void compute_histograms_number_bees_raw_1 (const Image &current_frame_raw, const Experiment *experiment, VectorHistograms *result);
 void compute_histograms_number_bees_2 (const Image &ROI_mask, Image *number_bees, VectorHistograms *result);
 
 static void compute_features_number_bees_bee_speed_1 (unsigned int index_frame, const Experiment *experiment, const VectorHistograms *histograms_number_bees, const VectorHistograms *histograms_bee_speed, VectorSeries *result);
@@ -49,15 +50,38 @@ void Experiment::process_data_plots_file ()
 		cout << "Processing folder " << this->user->folder << "...\n";
 		VectorHistograms *bee_speed = this->compute_histograms_frames_masked_ROIs_bee_speed ();
 		VectorHistograms *number_bees = this->compute_histograms_frames_masked_ROIs_number_bees ();
+		VectorHistograms *number_bees_raw = this->compute_histograms_frames_masked_ROIs_number_bees_raw ();
 		VectorSeries *features = this->compute_features_number_bees_bee_speed (*number_bees, *bee_speed);
 		Series *total_bees = this->compute_total_number_bees_in_ROIs (features);
 		delete bee_speed;
 		delete number_bees;
+		delete number_bees_raw;
 		delete features;
 		delete total_bees;
 		delete this->user;
 	}
 }
+
+VectorHistograms *Experiment::compute_histograms_frames_masked_ROIs_number_bees_raw () const
+{
+	VectorHistograms *result;
+	cout << "  Computing the histograms of number of bees images filtered with ROI masks - images are not treated\n";
+	string filename = this->user->histograms_frames_masked_ROIs_number_bees_raw_filename ();
+	if (access (filename.c_str (), F_OK) == 0) {
+		cout << "    Reading data from file " << filename << "...\n";
+		result = read_vector_histograms (filename, this->run.number_frames * this->run.number_ROIs);
+	}
+	else {
+		cout << "    Processing frames...\n";
+		result = new VectorHistograms ();
+		result->reserve (this->run.number_frames * this->run.number_ROIs);
+		this->user->fold2_frames (this->run, compute_histograms_number_bees_raw_1, this, result);
+		cout << "    Writing data to file " << filename << "...\n";
+		write_vector_histograms (filename, result);
+	}
+	return result;
+}
+
 
 VectorHistograms *Experiment::compute_histograms_frames_masked_ROIs_bee_speed () const
 {
@@ -173,6 +197,13 @@ void compute_histograms_number_bees_1 (const Image &current_frame_raw, const Exp
 	static Image current_frame_HE;
 	cv::equalizeHist (current_frame_raw, current_frame_HE);
 	cv::absdiff (*background_HE, current_frame_HE, number_bees);
+	experiment->user->fold2_ROIs (experiment->run, compute_histograms_number_bees_2, &number_bees, result);
+}
+
+void compute_histograms_number_bees_raw_1 (const Image &current_frame_raw, const Experiment *experiment, VectorHistograms *result)
+{
+	static Image number_bees;
+	cv::absdiff (experiment->user->background, current_frame_raw, number_bees);
 	experiment->user->fold2_ROIs (experiment->run, compute_histograms_number_bees_2, &number_bees, result);
 }
 

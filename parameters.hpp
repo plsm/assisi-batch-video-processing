@@ -192,6 +192,16 @@ public:
 		      "_DF=" + std::to_string (parameters.delta_frame) +
 		      ".csv";
 	}
+	inline std::string histograms_frames_masked_ROIs_number_bees_raw_filename () const
+	{
+		return
+		      this->folder +
+		      "histograms-frames"
+		      "_masked-ROIs"
+		      "_number-bees"
+		      "_raw"
+		      ".csv";
+	}
 	inline std::string histograms_frames_masked_ROIs_number_bees_histogram_equalisation_filename () const
 	{
 		return
@@ -260,6 +270,18 @@ public:
 		      "most-common-colour" +
 		      rectangle () +
 		      ".csv";
+	}
+	template<typename A, typename B>
+	inline void fold2_frames (const RunParameters &parameters, void (*func) (const Image &, A, B), A acc1, B acc2) const
+	{
+		for (unsigned int index_frame = 1; index_frame <= parameters.number_frames; index_frame++) {
+			std::string filename = this->frame_filename (parameters, index_frame);
+			Image frame = read_image (filename);
+			func (frame, acc1, acc2);
+			fprintf (stdout, "\r      %d", index_frame);
+			fflush (stdout);
+		}
+		fprintf (stdout, "\n");
 	}
 	template<typename A, typename B, typename C>
 	inline void fold3_frames (const RunParameters &parameters, void (*func) (const Image &, A, B, C), A acc1, B acc2, C acc3) const
