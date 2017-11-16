@@ -35,6 +35,18 @@ public:
 		}
 		fprintf (stdout, "\n");
 	}
+	template<typename A, typename B, typename C>
+	inline void fold3_frames_ROIs (void (*func) (unsigned int, unsigned int, A, B, C), A acc1, B acc2, C acc3) const
+	{
+		for (unsigned int index_frame = 0; index_frame < this->number_frames; index_frame++) {
+			for (unsigned int index_mask = 0; index_mask < this->number_ROIs; index_mask++) {
+				func (index_frame, index_mask, acc1, acc2, acc3);
+			}
+			fprintf (stdout, "\r      %d", index_frame + 1);
+			fflush (stdout);
+		}
+		fprintf (stdout, "\n");
+	}
 };
 
 /**
@@ -252,6 +264,15 @@ public:
 		      "_light-calibration-most-common-colour" +
 		      rectangle () +
 		      "_LC" +
+		      ".csv";
+	}
+	inline std::string total_number_bees_in_all_ROIs_raw_filename (const RunParameters &parameters) const
+	{
+		return
+		      this->folder +
+		      "total-number-bees"
+		      "_SCT=" + std::to_string (parameters.same_colour_threshold) +
+		      "_raw"
 		      ".csv";
 	}
 	inline std::string total_number_bees_in_all_ROIs_histogram_equalisation (const RunParameters &parameters) const

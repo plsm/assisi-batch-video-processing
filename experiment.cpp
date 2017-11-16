@@ -21,12 +21,15 @@ static void compute_features_number_bees_bee_speed_1 (unsigned int index_frame, 
 static void compute_features_number_bees_bee_speed_2 (unsigned int index_ROI, unsigned int index_frame, const RunParameters *run, const VectorHistograms *histograms_number_bees, const VectorHistograms *histograms_bee_speed, VectorSeries *result);
 
 static void compute_total_number_bees_in_ROIs_12 (unsigned int index_frame, unsigned int index_mask, const VectorSeries *features_number_bees_bee_speed, Series *result);
+static void compute_total_number_bees_in_ROIs_12 (unsigned int index_frame, unsigned int index_mask, const RunParameters *run, const VectorHistograms *histograms_number_bees, Series *result);
 
 static Series *read_series (const string &filename, size_t series_length);
 static void write_series (const string &filename, const Series &s);
 
 static VectorSeries *read_series (const string &filename, size_t number_series, size_t series_length);
 static void write_series (const string &filename, const VectorSeries &vs);
+
+static bool exists (const string &filename);
 
 Experiment::Experiment (int argc, char *argv[]):
    run (RunParameters::parse (argc, argv)),
@@ -53,11 +56,13 @@ void Experiment::process_data_plots_file ()
 		VectorHistograms *number_bees_raw = this->compute_histograms_frames_masked_ROIs_number_bees_raw ();
 		VectorSeries *features = this->compute_features_number_bees_bee_speed (*number_bees, *bee_speed);
 		Series *total_bees = this->compute_total_number_bees_in_ROIs (features);
+		Series *total_bees_raw = this->compute_total_number_bees_in_ROIs_raw (*number_bees_raw);
 		delete bee_speed;
 		delete number_bees;
 		delete number_bees_raw;
 		delete features;
 		delete total_bees;
+		delete total_bees_raw;
 		delete this->user;
 	}
 }
@@ -138,6 +143,25 @@ VectorSeries *Experiment::compute_features_number_bees_bee_speed (const VectorHi
 	else {
 		result = new VectorSeries (2 * this->run.number_ROIs);
 		this->user->fold4_frames_I (this->run, compute_features_number_bees_bee_speed_1, this, &histograms_number_bees, &histograms_bee_speed, result);
+		cout << "    Writing data to file " << filename << "...\n";
+		write_series (filename, *result);
+	}
+	return result;
+}
+
+Series *Experiment::compute_total_number_bees_in_ROIs_raw (const VectorHistograms &histograms_number_bees) const
+{
+	Series *result;
+	cout << "  Computing total number of bees in all ROIs using histograms of ROI filtered number of bees images - using raw frames.\n";
+	const string filename = this->user->total_number_bees_in_all_ROIs_raw_filename (this->run);
+	if (exists (filename)) {
+		cout << "    Reading data from file " << filename << "...\n";
+		result = read_series (filename, this->run.number_frames);
+	}
+	else {
+		cout << "    Using histograms of ROI filtered number of bees images...\n";
+		result = new Series (this->run.number_frames, 0);
+		this->run.fold3_frames_ROIs (compute_total_number_bees_in_ROIs_12, &this->run, &histograms_number_bees, result);
 		cout << "    Writing data to file " << filename << "...\n";
 		write_series (filename, *result);
 	}
@@ -242,6 +266,16 @@ void compute_features_number_bees_bee_speed_2 (unsigned int index_ROI, unsigned 
 	result->at (index_bee_speed).push_back (bee_speed_value);
 }
 
+void compute_total_number_bees_in_ROIs_12 (unsigned int index_frame, unsigned int index_ROI, const RunParameters *run, const VectorHistograms *histograms_number_bees, Series *result)
+{
+	unsigned int index_histogram = index_frame * run->number_ROIs + index_ROI;
+	int number_bees_value = 0;
+	for (unsigned int i = run->same_colour_level; i < NUMBER_COLOUR_LEVELS; i++) {
+		number_bees_value += histograms_number_bees->at (index_histogram).at (i);
+	}
+	result->at (index_frame) += number_bees_value;
+}
+
 void compute_total_number_bees_in_ROIs_12 (unsigned int index_frame, unsigned int index_mask, const VectorSeries *features_number_bees_bee_speed, Series *result)
 {
 	result->at (index_frame) += features_number_bees_bee_speed->at (2 * index_mask).at (index_frame);
@@ -309,6 +343,13 @@ static void write_series (const string &filename, const VectorSeries &vs)
 	}
 	fclose (f);
 	chmod (filename.c_str (), S_IRUSR);
+}
+
+static bool exists (const string &filename)
+{
+	return
+	      (access (filename.c_str (), F_OK) == 0) &&
+	      (access (filename.c_str (), W_OK) == -1);
 }
 
 Image pre_process_histogram_equalisation (const Image &image)
