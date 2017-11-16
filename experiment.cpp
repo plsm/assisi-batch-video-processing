@@ -50,6 +50,8 @@ void Experiment::process_data_plots_file ()
 		string csv_row;
 		std::getline (csv_stream, csv_row);
 		this->user = UserParameters::parse (this->run, csv_row);
+		if (!this->user->use)
+			continue;
 		cout << "Processing folder " << this->user->folder << "...\n";
 		VectorHistograms *bee_speed = this->compute_histograms_frames_masked_ROIs_bee_speed ();
 		VectorHistograms *number_bees = this->compute_histograms_frames_masked_ROIs_number_bees ();

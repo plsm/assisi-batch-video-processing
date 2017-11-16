@@ -72,7 +72,7 @@ class UserParameters
 		      std::to_string (this->x1) + "x" + std::to_string (this->y1) + "-" +
 		      std::to_string (this->x2) + "x" + std::to_string (this->y2);
 	}
-	UserParameters (const RunParameters &run_parameters, const std::string &folder, unsigned int x1, unsigned int y1, unsigned int x2, unsigned int y2);
+	UserParameters (const RunParameters &run_parameters, const std::string &folder, unsigned int x1, unsigned int y1, unsigned int x2, unsigned int y2, bool use);
 public:
 	/**
 	 * @brief folder Contains the folder where the data of a particular run of an
@@ -89,6 +89,7 @@ public:
 	const unsigned int y1;
 	const unsigned int x2;
 	const unsigned int y2;
+	const bool use;
 	const Image background;
 	const std::vector<Image> masks;
 	static UserParameters *parse (const RunParameters &, const std::string &csv_row);

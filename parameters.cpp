@@ -73,14 +73,15 @@ RunParameters RunParameters::parse (int argc, char *argv[])
 	return RunParameters (csv_filename, frame_file_type, number_ROIs, delta_frame, number_frames, same_colour_threshold);
 }
 
-UserParameters::UserParameters (const RunParameters &run_parameters, const string &folder, unsigned int x1, unsigned int y1, unsigned int x2, unsigned int y2):
+UserParameters::UserParameters (const RunParameters &run_parameters, const string &folder, unsigned int x1, unsigned int y1, unsigned int x2, unsigned int y2, bool use):
    folder (folder + verify_slash_at_end (folder)),
    x1 (x1),
    y1 (y1),
    x2 (x2),
    y2 (y2),
+   use (use),
    background (read_image (this->background_filename (run_parameters))),
-   masks (read_masks (run_parameters, *this))
+   masks (use ? read_masks (run_parameters, *this) : std::vector<Image> ())
 {
 }
 
@@ -92,13 +93,13 @@ UserParameters *UserParameters::parse (const RunParameters &run_parameters, cons
 	while (std::getline (lineStream, cell, ',')) {
 		cs.push_back (cell);
 	}
-	if (cs.size () != 5) {
+	if (cs.size () != 6) {
 		cerr << "The number of cells is different from 5!\n";
 		exit (EXIT_FAILURE);
 	}
 	std::string folder = cs [0];
 	folder = folder.substr (1, folder.size () - 2);
-	return new UserParameters (run_parameters, folder, std::stoi (cs [1]), std::stoi (cs [2]), std::stoi (cs [3]), std::stoi (cs [4]));
+	return new UserParameters (run_parameters, folder, std::stoi (cs [1]), std::stoi (cs [2]), std::stoi (cs [3]), std::stoi (cs [4]), cs [5] == "1" || cs [5] == "true");
 }
 
 static string verify_slash_at_end (const string &folder)
