@@ -18,11 +18,24 @@ public:
 	void process_data_plots_file ();
 private:
 	bool flag_check_ROIs;
+	bool flag_histograms_frames_masked_ORed_ROIs_number_bees;
 	bool flag_features_number_bees_AND_bee_speed;
 	bool flag_total_number_bees_in_ROIs_raw;
 	bool flag_total_number_bees_in_ROIs_HE;
 	void parse (int argc, char *argv[]);
 	void check_ROIs () const;
+	/**
+	 * @brief compute_histograms_frames_masked_ORed_ROIs_number_bees
+	 *
+	 * For each frame F compute an image M that is the resulting of ORing all the
+	 * masks of the regions of interest. Compute an image D that is the absolute
+	 * difference between frame F and the background image B. Afterwards compute
+	 * an image I that is the result of ANDing images D and M. Finally, compute
+	 * the histogram H of image I.
+	 *
+	 * @return A vector with the above described histogram H.
+	 */
+	VectorHistograms *compute_histograms_frames_masked_ORed_ROIs_number_bees () const;
 	VectorHistograms *compute_histograms_frames_masked_ROIs_bee_speed () const;
 	VectorHistograms *compute_histograms_frames_masked_ROIs_number_bees () const;
 	VectorHistograms *compute_histograms_frames_masked_ROIs_number_bees_raw () const;
