@@ -10,6 +10,7 @@
 #include "experiment.hpp"
 
 using namespace std;
+namespace po = boost::program_options;
 
 void check_ROI_pair (unsigned int roi1_number, const Image &roi1_image, unsigned int roi2_number, const Image &roi2_image);
 
@@ -34,45 +35,54 @@ static void write_series (const string &filename, const VectorSeries &vs);
 
 static bool exists (const string &filename);
 
-Experiment::Experiment (int argc, char *argv[]):
-   run (RunParameters::parse (argc, argv)),
-   user (NULL)
+#define PO_CHECK_ROI "check-ROIs"
+#define PO_HISTOGRAMS_FRAMES_MASKED_ORED_ROIS_NUMBER_BEES_HE "histograms-frames-masked-ORed-ROIs-number-bees-HE"
+#define PO_FEATURES_NUMBER_BEES_AND_BEE_SPEED "features-number-bees-AND-bee-speed"
+#define PO_TOTAL_NUMBER_BEES_IN_ROIS_RAW "total-number-bees-in-ROIs-raw"
+#define PO_TOTAL_NUMBER_BEES_IN_ROIS_HE "total-number-bees-in-ROIs-HE"
+
+Experiment::Experiment (const po::variables_map &vm):
+   run (vm),
+   user (NULL),
+   flag_check_ROIs (vm.count (PO_CHECK_ROI) > 0),
+   flag_histograms_frames_masked_ORed_ROIs_number_bees (vm.count (PO_HISTOGRAMS_FRAMES_MASKED_ORED_ROIS_NUMBER_BEES_HE) > 0),
+   flag_features_number_bees_AND_bee_speed (vm.count (PO_FEATURES_NUMBER_BEES_AND_BEE_SPEED) > 0),
+   flag_total_number_bees_in_ROIs_raw (vm.count (PO_TOTAL_NUMBER_BEES_IN_ROIS_RAW) > 0),
+   flag_total_number_bees_in_ROIs_HE (vm.count (PO_TOTAL_NUMBER_BEES_IN_ROIS_HE) > 0)
 {
-	this->parse (argc, argv);
 }
 
-void Experiment::parse (int argc, char *argv[])
+po::options_description Experiment::program_options ()
 {
-	bool ok = true;
-	do {
-		static struct option long_options[] = {
-		   {"check-ROIs"                           , no_argument, 0, 'r'},
-		   {"features-number-bees-AND-bee-speed"   , no_argument, 0, 'f'},
-		   {"total-number_bees-in-ROIs-raw"        , no_argument, 0, 'B'},
-		   {"total-number_bees-in-ROIs-HE"         , no_argument, 0, 'b'},
-		   {0, 0, 0, 0}
-	   };
-		int c = getopt_long (argc, argv, "", long_options, 0);
-		switch (c) {
-		case '?':
-			break;
-		case -1:
-			ok = false;
-			break;
-		case 'r':
-			this->flag_check_ROIs = true;
-			break;
-		case 'f':
-			this->flag_features_number_bees_AND_bee_speed = true;
-			break;
-		case 'B':
-			this->flag_total_number_bees_in_ROIs_raw = true;
-			break;
-		case 'b':
-			this->flag_total_number_bees_in_ROIs_HE = true;
-			break;
-		}
-	} while (ok);
+	po::options_description result ("Options for what analysis and checks to perform");
+	result.add_options ()
+	      (
+	         PO_CHECK_ROI,
+	         "check the masks of the regions of interest"
+	         )
+	      (
+	         PO_HISTOGRAMS_FRAMES_MASKED_ORED_ROIS_NUMBER_BEES_HE,
+	         "create a CSV file with histograms of images that are result of applying a mask M to a number of bee image."
+	         "Uses histogram equalization to pre-process the background image and the frames"
+	         "The mask M is the result of ORing all the masks of the regions of interest."
+	         )
+	      (
+	         PO_FEATURES_NUMBER_BEES_AND_BEE_SPEED,
+	         "create a CSV file with number of bees and bee speed per region of interest "
+	         "using histogram equalization to pre-process the background image and the frames"
+	         )
+	      (
+	         PO_TOTAL_NUMBER_BEES_IN_ROIS_RAW,
+	         "create a CSV file with the total number of bees in all regions of interest "
+	         "using the raw background image and frames"
+	         )
+	      (
+	         PO_TOTAL_NUMBER_BEES_IN_ROIS_HE,
+	         "create a CSV file with the total number of bees in all regions of interest "
+	         "using histogram equalization to pre-process the background image and the frames"
+	         )
+	;
+	return result;
 }
 
 void Experiment::process_data_plots_file ()

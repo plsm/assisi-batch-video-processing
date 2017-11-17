@@ -4,6 +4,8 @@ CONFIG -= app_bundle
 CONFIG -= qt
 CONFIG += link_pkgconfig
 PKGCONFIG = opencv
+LIBS += -lboost_program_options
+
 
 SOURCES += main.cpp \
     parameters.cpp \

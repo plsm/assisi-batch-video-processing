@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <string>
 #include <opencv2/core/core.hpp>
+#include <boost/program_options.hpp>
 
 #include "image.hpp"
 
@@ -21,8 +22,8 @@ public:
 	const unsigned int number_frames;
 	const unsigned int same_colour_threshold;
 	const unsigned int same_colour_level;
-	RunParameters (const std::string csv_filename, const std::string &frame_file_type, unsigned int number_ROIs, unsigned int delta_frame, unsigned int number_frames, unsigned same_colour_threshold);
-	static RunParameters parse (int argc, char *argv[]);
+	RunParameters (const boost::program_options::variables_map &vm);
+	static boost::program_options::options_description program_options ();
 	template<typename A, typename B>
 	inline void fold2_frames_ROIs (void (*func) (unsigned int, unsigned int, A, B), A acc1, B acc2) const
 	{
@@ -183,6 +184,16 @@ public:
 		      "_LC"
 		      ".csv";
 	}
+	inline std::string histograms_frames_masked_ORed_ROIs_number_bees_histogram_equalisation_filename () const
+	{
+		return
+		      this->folder +
+		      "histograms-frames"
+		      "_masked-ORed-ROIs"
+		      "_number-bees"
+		      "_histogram-equalisation-normal"
+		      ".csv";
+	}
 	inline std::string histograms_frames_masked_ROIs_bee_speed_raw_filename (const RunParameters &parameters) const
 	{
 		return
@@ -326,6 +337,13 @@ public:
 			fflush (stdout);
 		}
 		fprintf (stdout, "\n");
+	}
+	template<typename A>
+	inline void fold1_ROIs (void (*func) (const Image &, A), A acc1) const
+	{
+		for (unsigned int index_mask = 0; index_mask < this->masks.size (); index_mask++) {
+			func (this->masks [index_mask], acc1);
+		}
 	}
 	template<typename A, typename B, typename C, typename D, typename E>
 	inline void fold5_ROIs_I (const RunParameters &parameters, void (*func) (unsigned int, A, B, C, D, E), A acc1, B acc2, C acc3, D acc4, E acc5) const

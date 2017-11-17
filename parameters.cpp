@@ -6,71 +6,85 @@
 #include "parameters.hpp"
 
 using namespace std;
+namespace po = boost::program_options;
 
 static string verify_slash_at_end (const string &folder);
 static vector<cv::Mat> read_masks (const RunParameters &run_parameters, const UserParameters &parameters);
 
-RunParameters::RunParameters (const string csv_filename, const string &frame_file_type, unsigned int number_ROIs, unsigned int delta_frame, unsigned int number_frames, unsigned same_colour_threshold):
-   csv_filename (csv_filename),
-   frame_file_type (frame_file_type),
-   number_ROIs (number_ROIs),
-   delta_frame (delta_frame),
-   number_frames (number_frames),
-   same_colour_threshold (same_colour_threshold),
+#define PO_CSV_FILENAME "csv-file"
+#define PO_FRAME_FILE_TYPE "frame-file-type"
+#define PO_NUMBER_ROIs "number-ROIs"
+#define PO_DELTA_FRAME "delta-frame"
+#define PO_NUMBER_FRAMES "number-frames"
+#define PO_SAME_COLOUR_THRESHOLD "same-colour-threshold"
+
+RunParameters::RunParameters (const po::variables_map &vm):
+   csv_filename (vm [PO_CSV_FILENAME].as<string> ()),
+   frame_file_type (vm [PO_FRAME_FILE_TYPE].as<string> ()),
+   number_ROIs (vm [PO_NUMBER_ROIs].as<unsigned int> ()),
+   delta_frame (vm [PO_DELTA_FRAME].as<unsigned int> ()),
+   number_frames (vm [PO_NUMBER_FRAMES].as<unsigned int> ()),
+   same_colour_threshold (vm [PO_SAME_COLOUR_THRESHOLD].as<unsigned int> ()),
    same_colour_level (round ((NUMBER_COLOUR_LEVELS * same_colour_threshold) / 100.0))
 {
 }
 
-RunParameters RunParameters::parse (int argc, char *argv[])
+po::options_description RunParameters::program_options ()
 {
-	bool ok = true;
-	const char *csv_filename = "data-plots.csv";
-	const char *frame_file_type = "png";
-	unsigned int number_ROIs = 3;
-	unsigned int same_colour_threshold = 15;
-	unsigned int delta_frame = 2;
-	unsigned int number_frames = 730;
-	do {
-		static struct option long_options[] = {
-		   {"csv-file"       , required_argument, 0, 'a'},
-		        {"frame-file-type"       , required_argument, 0, 'f'},
-		        {"number-ROIs"           , required_argument, 0, 'r'},
-		        {"delta-frame"           , required_argument, 0, 'd'},
-		        {"number-frames"         , required_argument, 0, 'n'},
-		        {"same-colour-threshold" , required_argument, 0, 'c'},
-		        {0,         0,                 0,  0 }
-		};
-		int c = getopt_long (argc, argv, "a:f:r:d:n:c:", long_options, 0);
-		switch (c) {
-		case '?':
-			break;
-		case -1:
-			ok = false;
-			break;
-		case ':':
-			fprintf (stderr, "Missing argument\n");
-			exit (EXIT_FAILURE);
-			break;
-		case 'a':
-			csv_filename = optarg;
-			break;
-		case 'f':
-			frame_file_type = optarg;
-			break;
-		case 'r':
-			number_ROIs = (unsigned int) atoi (optarg);
-			break;
-		case 'd':
-			delta_frame = (unsigned int) atoi (optarg);
-			break;
-		case 'n':
-			number_frames = (unsigned int) atoi (optarg);
-		case 'c':
-			same_colour_threshold = (unsigned int) atoi (optarg);
-			break;
-		}
-	} while (ok);
-	return RunParameters (csv_filename, frame_file_type, number_ROIs, delta_frame, number_frames, same_colour_threshold);
+	po::options_description config ("Options that describe how the experiment was performed");
+	config.add_options ()
+	      (
+	         PO_CSV_FILENAME",a",
+	         po::value<string> ()
+	         ->default_value ("data-analyse.csv")
+	         ->value_name ("FILENAME"),
+	         "CSV file with data of which folders to analyse"
+	         )
+	      (
+	         PO_FRAME_FILE_TYPE",f",
+	         po::value<string> ()
+	         ->required ()
+	         ->default_value ("png")
+	         ->value_name ("EXTENSION"),
+	         "file type of the frame"
+	         )
+	      (
+	         PO_NUMBER_ROIs",r",
+	         po::value<unsigned int> ()
+	         ->default_value (3)
+	         ->value_name ("N"),
+	         "how many regions of interest exist"
+	         )
+	      (
+	         PO_NUMBER_FRAMES",n",
+	         po::value<unsigned int> ()
+	         ->required ()
+	         ->value_name ("N"),
+	         "how many frames the videos have"
+	         )
+	      ;
+	po::options_description analysis ("Options for the parameters that affect the analysis");
+	analysis.add_options ()
+	      (
+	         PO_DELTA_FRAME",d",
+	         po::value<unsigned int> ()
+	         ->required ()
+	         ->default_value (2)
+	         ->value_name ("D"),
+	         "how many frames apart are used when computing bee movement"
+	         )
+	      (
+	         PO_SAME_COLOUR_THRESHOLD",c",
+	         po::value<unsigned int> ()
+	         ->required ()
+	         ->value_name ("PERC"),
+	         "threshold value used when deciding if two colour intensities are equal, percentage value"
+	         )
+	      ;
+	po::options_description result ("");
+	result.add (config);
+	result.add (analysis);
+	return result;
 }
 
 UserParameters::UserParameters (const RunParameters &run_parameters, const string &folder, unsigned int x1, unsigned int y1, unsigned int x2, unsigned int y2, bool use):

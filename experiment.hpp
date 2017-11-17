@@ -2,6 +2,7 @@
 #define EXPERIMENT_HPP
 
 #include <vector>
+#include <boost/program_options.hpp>
 
 #include "parameters.hpp"
 #include "histogram.hpp"
@@ -14,15 +15,15 @@ class Experiment
 public:
 	const RunParameters run;
 	UserParameters *user;
-	Experiment (int argc, char *argv[]);
+	Experiment (const boost::program_options::variables_map &vm);
 	void process_data_plots_file ();
+	static boost::program_options::options_description program_options ();
 private:
 	bool flag_check_ROIs;
 	bool flag_histograms_frames_masked_ORed_ROIs_number_bees;
 	bool flag_features_number_bees_AND_bee_speed;
 	bool flag_total_number_bees_in_ROIs_raw;
 	bool flag_total_number_bees_in_ROIs_HE;
-	void parse (int argc, char *argv[]);
 	void check_ROIs () const;
 	/**
 	 * @brief compute_histograms_frames_masked_ORed_ROIs_number_bees
