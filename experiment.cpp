@@ -11,6 +11,8 @@
 
 using namespace std;
 
+void check_ROI_pair (unsigned int roi1_number, const Image &roi1_image, unsigned int roi2_number, const Image &roi2_image);
+
 void compute_histograms_bee_speed_1 (const Image &current_frame, const Experiment *experiment, queue<Image> *cache, VectorHistograms *result);
 void compute_histograms_bee_speed_2 (const Image &ROI_mask, bool enough_frames, Image *bee_speed, VectorHistograms *result);
 
@@ -44,6 +46,7 @@ void Experiment::parse (int argc, char *argv[])
 	bool ok = true;
 	do {
 		static struct option long_options[] = {
+		   {"check-ROIs"                           , no_argument, 0, 'r'},
 		   {"features-number-bees-AND-bee-speed"   , no_argument, 0, 'f'},
 		   {"total-number_bees-in-ROIs-raw"        , no_argument, 0, 'B'},
 		   {"total-number_bees-in-ROIs-HE"         , no_argument, 0, 'b'},
@@ -56,6 +59,8 @@ void Experiment::parse (int argc, char *argv[])
 		case -1:
 			ok = false;
 			break;
+		case 'r':
+			this->flag_check_ROIs = true;
 		case 'f':
 			this->flag_features_number_bees_AND_bee_speed = true;
 			break;
@@ -85,6 +90,8 @@ void Experiment::process_data_plots_file ()
 		if (!this->user->use)
 			continue;
 		cout << "Processing folder " << this->user->folder << "...\n";
+		if (this->flag_check_ROIs)
+			this->check_ROIs ();
 		VectorHistograms *bee_speed =
 		      this->flag_features_number_bees_AND_bee_speed ||
 		      this->flag_total_number_bees_in_ROIs_HE
@@ -115,6 +122,12 @@ void Experiment::process_data_plots_file ()
 		delete total_bees_raw;
 		delete this->user;
 	}
+}
+
+void Experiment::check_ROIs () const
+{
+	cout << "  Checking masks of regions of interest.\n";
+	this->user->fold0_ROI_pairs (check_ROI_pair);
 }
 
 VectorHistograms *Experiment::compute_histograms_frames_masked_ROIs_number_bees_raw () const
@@ -235,6 +248,18 @@ Series *Experiment::compute_total_number_bees_in_ROIs (const VectorSeries *featu
 		write_series (filename, *result);
 	}
 	return result;
+}
+
+void check_ROI_pair (unsigned int roi1_number, const Image &roi1_image, unsigned int roi2_number, const Image &roi2_image)
+{
+	Image common = roi1_image & roi2_image;
+	static Histogram histogram;
+	compute_histogram (common, histogram);
+	if (histogram.at (NUMBER_COLOUR_LEVELS - 1) > 0)
+		cout
+		      << "    ROIs " << roi1_number
+		      << " and " << roi2_number
+		      << " have " << histogram.at (NUMBER_COLOUR_LEVELS - 1) << " pixels in common\n";
 }
 
 void compute_histograms_bee_speed_1 (const Image &current_frame_raw, const Experiment *experiment, queue<Image> *cache, VectorHistograms *result)

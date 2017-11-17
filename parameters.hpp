@@ -348,6 +348,14 @@ public:
 			func (this->masks [index_mask], acc1, acc2);
 		}
 	}
+	inline void fold0_ROI_pairs (void (*func) (unsigned int, const Image &, unsigned int, const Image &)) const
+	{
+		for (unsigned int index_mask_1 = 0; index_mask_1 < this->masks.size () - 1; index_mask_1++) {
+			for (unsigned int index_mask_2 = index_mask_1 + 1; index_mask_2 < this->masks.size (); index_mask_2++) {
+				func (index_mask_1 + 1, this->masks [index_mask_1], index_mask_2 + 1, this->masks [index_mask_2]);
+			}
+		}
+	}
 	/**
 	 * @brief rectangle_user return a string representing the rectangle to be
 	 * analysed in a human readable way.

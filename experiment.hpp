@@ -17,10 +17,12 @@ public:
 	Experiment (int argc, char *argv[]);
 	void process_data_plots_file ();
 private:
+	bool flag_check_ROIs;
 	bool flag_features_number_bees_AND_bee_speed;
 	bool flag_total_number_bees_in_ROIs_raw;
 	bool flag_total_number_bees_in_ROIs_HE;
 	void parse (int argc, char *argv[]);
+	void check_ROIs () const;
 	VectorHistograms *compute_histograms_frames_masked_ROIs_bee_speed () const;
 	VectorHistograms *compute_histograms_frames_masked_ROIs_number_bees () const;
 	VectorHistograms *compute_histograms_frames_masked_ROIs_number_bees_raw () const;
