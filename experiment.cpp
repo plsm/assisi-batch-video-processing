@@ -2,6 +2,7 @@
 #include <iostream>
 #include <fstream>
 #include <queue>
+#include <getopt.h>
 #include <sys/stat.h>
 
 #include <opencv2/imgproc/imgproc.hpp>
@@ -35,8 +36,39 @@ Experiment::Experiment (int argc, char *argv[]):
    run (RunParameters::parse (argc, argv)),
    user (NULL)
 {
-
+	this->parse (argc, argv);
 }
+
+void Experiment::parse (int argc, char *argv[])
+{
+	bool ok = true;
+	do {
+		static struct option long_options[] = {
+		   {"features-number-bees-AND-bee-speed"   , no_argument, 0, 'f'},
+		   {"total-number_bees-in-ROIs-raw"        , no_argument, 0, 'B'},
+		   {"total-number_bees-in-ROIs-HE"         , no_argument, 0, 'b'},
+		   {0, 0, 0, 0}
+	   };
+		int c = getopt_long (argc, argv, "", long_options, 0);
+		switch (c) {
+		case '?':
+			break;
+		case -1:
+			ok = false;
+			break;
+		case 'f':
+			this->flag_features_number_bees_AND_bee_speed = true;
+			break;
+		case 'B':
+			this->flag_total_number_bees_in_ROIs_raw = true;
+			break;
+		case 'b':
+			this->flag_total_number_bees_in_ROIs_HE = true;
+			break;
+		}
+	} while (ok);
+}
+
 void Experiment::process_data_plots_file ()
 {
 	if (access (this->run.csv_filename.c_str (), F_OK) != 0) {
@@ -53,12 +85,28 @@ void Experiment::process_data_plots_file ()
 		if (!this->user->use)
 			continue;
 		cout << "Processing folder " << this->user->folder << "...\n";
-		VectorHistograms *bee_speed = this->compute_histograms_frames_masked_ROIs_bee_speed ();
-		VectorHistograms *number_bees = this->compute_histograms_frames_masked_ROIs_number_bees ();
-		VectorHistograms *number_bees_raw = this->compute_histograms_frames_masked_ROIs_number_bees_raw ();
-		VectorSeries *features = this->compute_features_number_bees_bee_speed (*number_bees, *bee_speed);
-		Series *total_bees = this->compute_total_number_bees_in_ROIs (features);
-		Series *total_bees_raw = this->compute_total_number_bees_in_ROIs_raw (*number_bees_raw);
+		VectorHistograms *bee_speed =
+		      this->flag_features_number_bees_AND_bee_speed ||
+		      this->flag_total_number_bees_in_ROIs_HE
+		      ? this->compute_histograms_frames_masked_ROIs_bee_speed () : NULL;
+		VectorHistograms *number_bees =
+		      this->flag_features_number_bees_AND_bee_speed ||
+		      this->flag_total_number_bees_in_ROIs_HE
+		      ? this->compute_histograms_frames_masked_ROIs_number_bees () : NULL;
+		VectorHistograms *number_bees_raw =
+		      this->flag_total_number_bees_in_ROIs_raw
+		      ? this->compute_histograms_frames_masked_ROIs_number_bees_raw () : NULL;
+		VectorSeries *features =
+		      this->flag_features_number_bees_AND_bee_speed ||
+		      this->flag_total_number_bees_in_ROIs_HE
+		      ? this->compute_features_number_bees_bee_speed (*number_bees, *bee_speed) : NULL;
+		Series *total_bees =
+		      this->flag_total_number_bees_in_ROIs_HE
+		      ?
+		      this->compute_total_number_bees_in_ROIs (features) : NULL;
+		Series *total_bees_raw =
+		      this->flag_total_number_bees_in_ROIs_raw
+		      ? this->compute_total_number_bees_in_ROIs_raw (*number_bees_raw) : NULL;
 		delete bee_speed;
 		delete number_bees;
 		delete number_bees_raw;
