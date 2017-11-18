@@ -194,6 +194,16 @@ public:
 		      "_histogram-equalisation-normal"
 		      ".csv";
 	}
+	inline std::string histograms_frames_masked_ORed_ROIs_number_bees_raw_filename () const
+	{
+		return
+		      this->folder +
+		      "histograms-frames"
+		      "_masked-ORed-ROIs"
+		      "_number-bees"
+		      "_raw"
+		      ".csv";
+	}
 	inline std::string histograms_frames_masked_ROIs_bee_speed_raw_filename (const RunParameters &parameters) const
 	{
 		return
@@ -323,6 +333,18 @@ public:
 			std::string filename = this->frame_filename (parameters, index_frame);
 			Image frame = read_image (filename);
 			func (frame, acc1, acc2, acc3);
+			fprintf (stdout, "\r      %d", index_frame);
+			fflush (stdout);
+		}
+		fprintf (stdout, "\n");
+	}
+	template<typename A, typename B, typename C, typename D>
+	inline void fold4_frames (const RunParameters &parameters, void (*func) (const Image &, A, B, C, D), A acc1, B acc2, C acc3, D acc4) const
+	{
+		for (unsigned int index_frame = 1; index_frame <= parameters.number_frames; index_frame++) {
+			std::string filename = this->frame_filename (parameters, index_frame);
+			Image frame = read_image (filename);
+			func (frame, acc1, acc2, acc3, acc4);
 			fprintf (stdout, "\r      %d", index_frame);
 			fflush (stdout);
 		}

@@ -36,6 +36,7 @@ static void write_series (const string &filename, const VectorSeries &vs);
 static bool exists (const string &filename);
 
 #define PO_CHECK_ROI "check-ROIs"
+#define PO_HISTOGRAMS_FRAMES_MASKED_ORED_ROIS_NUMBER_BEES_RAW "histograms-frames-masked-ORed-ROIs-number-bees-raw"
 #define PO_HISTOGRAMS_FRAMES_MASKED_ORED_ROIS_NUMBER_BEES_HE "histograms-frames-masked-ORed-ROIs-number-bees-HE"
 #define PO_FEATURES_NUMBER_BEES_AND_BEE_SPEED "features-number-bees-AND-bee-speed"
 #define PO_TOTAL_NUMBER_BEES_IN_ROIS_RAW "total-number-bees-in-ROIs-raw"
@@ -45,6 +46,7 @@ Experiment::Experiment (const po::variables_map &vm):
    run (vm),
    user (NULL),
    flag_check_ROIs (vm.count (PO_CHECK_ROI) > 0),
+   flag_histograms_frames_masked_ORed_ROIs_number_bees_raw (vm.count (PO_HISTOGRAMS_FRAMES_MASKED_ORED_ROIS_NUMBER_BEES_RAW) > 0),
    flag_histograms_frames_masked_ORed_ROIs_number_bees (vm.count (PO_HISTOGRAMS_FRAMES_MASKED_ORED_ROIS_NUMBER_BEES_HE) > 0),
    flag_features_number_bees_AND_bee_speed (vm.count (PO_FEATURES_NUMBER_BEES_AND_BEE_SPEED) > 0),
    flag_total_number_bees_in_ROIs_raw (vm.count (PO_TOTAL_NUMBER_BEES_IN_ROIS_RAW) > 0),
@@ -59,6 +61,12 @@ po::options_description Experiment::program_options ()
 	      (
 	         PO_CHECK_ROI,
 	         "check the masks of the regions of interest"
+	         )
+	      (
+	         PO_HISTOGRAMS_FRAMES_MASKED_ORED_ROIS_NUMBER_BEES_RAW,
+	         "create a CSV file with histograms of images that are the result of applying a mask M to a number of bees image."
+	         "Uses raw backgroung image and frames."
+	         "The mask M is the result of ORing all the masks of the regions of interest."
 	         )
 	      (
 	         PO_HISTOGRAMS_FRAMES_MASKED_ORED_ROIS_NUMBER_BEES_HE,
@@ -105,7 +113,18 @@ void Experiment::process_data_plots_file ()
 			this->check_ROIs ();
 		VectorHistograms *histograms_total_number_bees =
 		      this->flag_histograms_frames_masked_ORed_ROIs_number_bees
-		      ? this->compute_histograms_frames_masked_ORed_ROIs_number_bees () : NULL;
+		      ? this->compute_histograms_frames_masked_ORed_ROIs_number_bees (
+		           "Using histogram equalization to preprocess background image and frames.",
+		           preprocess_histogram_equalisation,
+		           this->user->histograms_frames_masked_ORed_ROIs_number_bees_histogram_equalisation_filename ()
+		           ) : NULL;
+		VectorHistograms *histograms_total_number_bees_raw =
+		      this->flag_histograms_frames_masked_ORed_ROIs_number_bees_raw
+		      ? this->compute_histograms_frames_masked_ORed_ROIs_number_bees (
+		           "Using raw background image and frames.",
+		           preprocess_raw,
+		           this->user->histograms_frames_masked_ORed_ROIs_number_bees_raw_filename ()
+		           ) : NULL;
 		VectorHistograms *bee_speed =
 		      this->flag_features_number_bees_AND_bee_speed ||
 		      this->flag_total_number_bees_in_ROIs_HE
@@ -129,6 +148,7 @@ void Experiment::process_data_plots_file ()
 		      this->flag_total_number_bees_in_ROIs_raw
 		      ? this->compute_total_number_bees_in_ROIs_raw (*number_bees_raw) : NULL;
 		delete histograms_total_number_bees;
+		delete histograms_total_number_bees_raw;
 		delete bee_speed;
 		delete number_bees;
 		delete number_bees_raw;
@@ -145,16 +165,19 @@ void Experiment::check_ROIs () const
 	this->user->fold0_ROI_pairs (check_ROI_pair);
 }
 
-void compute_histograms_number_bees_ORed_ROI_masks_1 (const Image &current_frame_raw, const Image *background_HE, const Image *ORed_ROI_masks, VectorHistograms *result)
+void compute_histograms_number_bees_ORed_ROI_masks_1 (
+      const Image &current_frame_raw,
+      const Image *preprocessed_background, PreprocessImage func, const Image *ORed_ROI_masks,
+      VectorHistograms *result)
 {
 	static Image number_bees;
-	static Image current_frame_HE;
-	cv::equalizeHist (current_frame_raw, current_frame_HE);
-	cv::absdiff (*background_HE, current_frame_HE, number_bees);
+	static const Image *preprocessed_current_frame;
+	preprocessed_current_frame = func (&current_frame_raw);
+	cv::absdiff (*preprocessed_background, *preprocessed_current_frame, number_bees);
 	static Histogram histogram;
 	Image diff = number_bees & *ORed_ROI_masks;
 #ifdef DEBUG
-	cv::imshow ("current frame", current_frame_HE);
+	cv::imshow ("pre-processed current frame", *preprocessed_current_frame);
 	cv::imshow ("number of bees", number_bees);
 	cv::imshow ("diff", diff);
 	cv::waitKey (0);
@@ -163,11 +186,11 @@ void compute_histograms_number_bees_ORed_ROI_masks_1 (const Image &current_frame
 	result->push_back (histogram);
 }
 
-VectorHistograms *Experiment::compute_histograms_frames_masked_ORed_ROIs_number_bees () const
+VectorHistograms *Experiment::compute_histograms_frames_masked_ORed_ROIs_number_bees (
+      const string &preprocess_treatment, PreprocessImage preprocess_func, const string &filename) const
 {
 	VectorHistograms *result;
-	cout << "  Computing the histograms of number of bees images filtered with ORed ROI mask...\n";
-	string filename = this->user->histograms_frames_masked_ORed_ROIs_number_bees_histogram_equalisation_filename ();
+	cout << "  Computing the histograms of number of bees images filtered with ORed ROIs mask. " << preprocess_treatment << "\n";
 	if (exists (filename)) {
 		cout << "    Reading data from file " << filename << "...\n";
 		result = read_vector_histograms (filename, this->run.number_frames);
@@ -176,23 +199,22 @@ VectorHistograms *Experiment::compute_histograms_frames_masked_ORed_ROIs_number_
 		cout << "    Processing frames...\n";
 		result = new VectorHistograms ();
 		result->reserve (this->run.number_frames);
-		Image background_HE;
-		cv::equalizeHist (this->user->background, background_HE);
+		const Image *preprocessed_background = preprocess_func (&this->user->background);
 		Image ORed_ROI_masks;
 		typedef void (*fold1_ROIs) (const Image &, Image *);
-		fold1_ROIs func = [] (const Image &ROI_mask, Image *_ORed_ROI_masks) {
+		fold1_ROIs func_or_ROIs = [] (const Image &ROI_mask, Image *_ORed_ROI_masks) {
 			if (_ORed_ROI_masks->size ().width == 0)
 				*_ORed_ROI_masks = ROI_mask;
 			else
 				*_ORed_ROI_masks = *_ORed_ROI_masks | ROI_mask;
 		};
-		this->user->fold1_ROIs (func, &ORed_ROI_masks);
+		this->user->fold1_ROIs (func_or_ROIs, &ORed_ROI_masks);
 #ifdef DEBUG
 		cv::imshow ("ORed masks", ORed_ROI_masks);
-		cv::imshow ("background", background_HE);
+		cv::imshow ("pre-processed background", *preprocessed_background);
 #endif
-		this->user->fold3_frames (this->run, compute_histograms_number_bees_ORed_ROI_masks_1,
-		                          (const Image *) &background_HE, (const Image *) &ORed_ROI_masks, result);
+		this->user->fold4_frames (this->run, compute_histograms_number_bees_ORed_ROI_masks_1,
+		                          preprocessed_background, preprocess_func, (const Image *) &ORed_ROI_masks, result);
 		cout << "    Writing data to file " << filename << "...\n";
 		write_vector_histograms (filename, result);
 	}
@@ -495,9 +517,3 @@ static bool exists (const string &filename)
 	      (access (filename.c_str (), W_OK) == -1);
 }
 
-Image pre_process_histogram_equalisation (const Image &image)
-{
-	Image result;
-	cv::equalizeHist (image, result);
-	return result;
-}

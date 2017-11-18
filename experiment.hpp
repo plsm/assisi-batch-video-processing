@@ -9,6 +9,7 @@
 
 typedef std::vector<int> Series;
 typedef std::vector<Series> VectorSeries;
+typedef const Image * (*PreprocessImage) (const Image *);
 
 class Experiment
 {
@@ -19,24 +20,34 @@ public:
 	void process_data_plots_file ();
 	static boost::program_options::options_description program_options ();
 private:
-	bool flag_check_ROIs;
-	bool flag_histograms_frames_masked_ORed_ROIs_number_bees;
-	bool flag_features_number_bees_AND_bee_speed;
-	bool flag_total_number_bees_in_ROIs_raw;
-	bool flag_total_number_bees_in_ROIs_HE;
+	const bool flag_check_ROIs;
+	const bool flag_histograms_frames_masked_ORed_ROIs_number_bees_raw;
+	const bool flag_histograms_frames_masked_ORed_ROIs_number_bees;
+	const bool flag_features_number_bees_AND_bee_speed;
+	const bool flag_total_number_bees_in_ROIs_raw;
+	const bool flag_total_number_bees_in_ROIs_HE;
 	void check_ROIs () const;
 	/**
 	 * @brief compute_histograms_frames_masked_ORed_ROIs_number_bees
 	 *
-	 * For each frame F compute an image M that is the resulting of ORing all the
-	 * masks of the regions of interest. Compute an image D that is the absolute
-	 * difference between frame F and the background image B. Afterwards compute
-	 * an image I that is the result of ANDing images D and M. Finally, compute
-	 * the histogram H of image I.
+	 * Compute a mask M that is the resulting of ORing all the masks of the
+	 * regions of interest.
+	 *
+	 * For each frame F compute an image D that is the absolute difference between
+	 * frame F and the background image B. Afterwards compute an image I that is
+	 * the result of ANDing images D and M. Finally, compute the histogram H of
+	 * image I.
+	 *
+	 * @param preprocess_treatment Name of the preprocess applied to the
+	 * background image and frames.
+	 *
+	 * @param func Function to be applied to the background image and frames.
+	 *
+	 * @param filename Filename where the histograms are saved.
 	 *
 	 * @return A vector with the above described histogram H.
 	 */
-	VectorHistograms *compute_histograms_frames_masked_ORed_ROIs_number_bees () const;
+	VectorHistograms *compute_histograms_frames_masked_ORed_ROIs_number_bees (const std::string &preprocess_treatment, PreprocessImage func, const std::string &filename) const;
 	VectorHistograms *compute_histograms_frames_masked_ROIs_bee_speed () const;
 	VectorHistograms *compute_histograms_frames_masked_ROIs_number_bees () const;
 	VectorHistograms *compute_histograms_frames_masked_ROIs_number_bees_raw () const;
