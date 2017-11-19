@@ -53,18 +53,26 @@ private:
 	VectorHistograms *compute_histograms_frames_masked_ROIs_number_bees_raw () const;
 	VectorSeries *compute_features_number_bees_bee_speed (const VectorHistograms &histograms_number_bees, const VectorHistograms &histograms_bee_speed) const;
 	/**
-	 * @brief compute_total_number_bees_in_ROIs_raw Computes the number of bees in
+	 * @brief compute_total_number_bees_in_ORed_ROIs Computes the number of bees in
 	 * all region of interest per video frame. This method uses the histograms of
 	 * ROI masked number of bees images.
+	 *
+	 * The histograms are computed on an image I that is
+	 *
+	 * I = absdiff (B', F') & (R1 | R2 | ...)
+	 *
+	 * where B' and F' are the pre-processed background image and frame,
+	 * respectively, Ri are the image masks for region of interest i.
+	 *
+	 * @param preprocess_treatment A string describing how the background image
+	 * and frames where pre-processed.
 	 *
 	 * @param histograms_number_bees The histograms of ROI masked number of bees
 	 * images.
 	 *
-	 * @return A series with the number of bees in all region of interest per video
-	 * frame.
+	 * @param filename The filename where the data is stored
 	 */
-	Series *compute_total_number_bees_in_ROIs_raw (const VectorHistograms &histograms_number_bees) const;
-	Series *compute_total_number_bees_in_ROIs (const VectorSeries *features_number_bees_bee_speed);
+	void compute_total_number_bees_in_ORed_ROIs (const std::string &preprocess_treatment, const VectorHistograms *histograms_number_bees, const std::string &filename) const;
 };
 
 #endif // EXPERIMENT_HPP

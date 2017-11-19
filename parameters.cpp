@@ -81,7 +81,7 @@ po::options_description RunParameters::program_options ()
 	         "threshold value used when deciding if two colour intensities are equal, percentage value"
 	         )
 	      ;
-	po::options_description result ("");
+	po::options_description result;
 	result.add (config);
 	result.add (analysis);
 	return result;

@@ -24,9 +24,6 @@ void compute_histograms_number_bees_2 (const Image &ROI_mask, Image *number_bees
 static void compute_features_number_bees_bee_speed_1 (unsigned int index_frame, const Experiment *experiment, const VectorHistograms *histograms_number_bees, const VectorHistograms *histograms_bee_speed, VectorSeries *result);
 static void compute_features_number_bees_bee_speed_2 (unsigned int index_ROI, unsigned int index_frame, const RunParameters *run, const VectorHistograms *histograms_number_bees, const VectorHistograms *histograms_bee_speed, VectorSeries *result);
 
-static void compute_total_number_bees_in_ROIs_12 (unsigned int index_frame, unsigned int index_mask, const VectorSeries *features_number_bees_bee_speed, Series *result);
-static void compute_total_number_bees_in_ROIs_12 (unsigned int index_frame, unsigned int index_mask, const RunParameters *run, const VectorHistograms *histograms_number_bees, Series *result);
-
 static Series *read_series (const string &filename, size_t series_length);
 static void write_series (const string &filename, const Series &s);
 
@@ -112,6 +109,7 @@ void Experiment::process_data_plots_file ()
 		if (this->flag_check_ROIs)
 			this->check_ROIs ();
 		VectorHistograms *histograms_total_number_bees =
+		      this->flag_total_number_bees_in_ROIs_HE ||
 		      this->flag_histograms_frames_masked_ORed_ROIs_number_bees
 		      ? this->compute_histograms_frames_masked_ORed_ROIs_number_bees (
 		           "Using histogram equalization to preprocess background image and frames.",
@@ -119,6 +117,7 @@ void Experiment::process_data_plots_file ()
 		           this->user->histograms_frames_masked_ORed_ROIs_number_bees_histogram_equalisation_filename ()
 		           ) : NULL;
 		VectorHistograms *histograms_total_number_bees_raw =
+		      this->flag_total_number_bees_in_ROIs_raw ||
 		      this->flag_histograms_frames_masked_ORed_ROIs_number_bees_raw
 		      ? this->compute_histograms_frames_masked_ORed_ROIs_number_bees (
 		           "Using raw background image and frames.",
@@ -126,35 +125,35 @@ void Experiment::process_data_plots_file ()
 		           this->user->histograms_frames_masked_ORed_ROIs_number_bees_raw_filename ()
 		           ) : NULL;
 		VectorHistograms *bee_speed =
-		      this->flag_features_number_bees_AND_bee_speed ||
-		      this->flag_total_number_bees_in_ROIs_HE
+		      this->flag_features_number_bees_AND_bee_speed
 		      ? this->compute_histograms_frames_masked_ROIs_bee_speed () : NULL;
 		VectorHistograms *number_bees =
-		      this->flag_features_number_bees_AND_bee_speed ||
-		      this->flag_total_number_bees_in_ROIs_HE
+		      this->flag_features_number_bees_AND_bee_speed
 		      ? this->compute_histograms_frames_masked_ROIs_number_bees () : NULL;
 		VectorHistograms *number_bees_raw =
-		      this->flag_total_number_bees_in_ROIs_raw
+		      false
 		      ? this->compute_histograms_frames_masked_ROIs_number_bees_raw () : NULL;
 		VectorSeries *features =
 		      this->flag_features_number_bees_AND_bee_speed ||
 		      this->flag_total_number_bees_in_ROIs_HE
 		      ? this->compute_features_number_bees_bee_speed (*number_bees, *bee_speed) : NULL;
-		Series *total_bees =
-		      this->flag_total_number_bees_in_ROIs_HE
-		      ?
-		      this->compute_total_number_bees_in_ROIs (features) : NULL;
-		Series *total_bees_raw =
-		      this->flag_total_number_bees_in_ROIs_raw
-		      ? this->compute_total_number_bees_in_ROIs_raw (*number_bees_raw) : NULL;
+		if (this->flag_total_number_bees_in_ROIs_HE)
+			this->compute_total_number_bees_in_ORed_ROIs (
+		         "Background image and frames were subject to histogram equalization.",
+		         histograms_total_number_bees,
+		         this->user->total_number_bees_in_all_ROIs_histogram_equalisation (this->run));
+		if (this->flag_total_number_bees_in_ROIs_raw)
+			this->compute_total_number_bees_in_ORed_ROIs (
+		         "Background image and frames were used as is.",
+		         histograms_total_number_bees_raw,
+		         this->user->total_number_bees_in_all_ROIs_raw_filename (this->run)
+		         );
 		delete histograms_total_number_bees;
 		delete histograms_total_number_bees_raw;
 		delete bee_speed;
 		delete number_bees;
 		delete number_bees_raw;
 		delete features;
-		delete total_bees;
-		delete total_bees_raw;
 		delete this->user;
 	}
 }
@@ -302,42 +301,43 @@ VectorSeries *Experiment::compute_features_number_bees_bee_speed (const VectorHi
 	return result;
 }
 
-Series *Experiment::compute_total_number_bees_in_ROIs_raw (const VectorHistograms &histograms_number_bees) const
+/**
+ * @brief compute_total_number_bees_in_ORed_ROIs_12 Computes how many bees are
+ * in all the ROIS.
+ *
+ * Uses the histograms of images I. Each image is computed has given by the
+ * following formula:
+ *
+ * I = absdiff (F, B) & (R1 | R2 | ... )
+ *
+ * where F is a frame, B is the background image, Ri are the ROIs masks. F and
+ * B are pre-processed with one of the preprocess_X functions in module image.
+ *
+ * @param index_frame
+ * @param run
+ * @param histograms_number_bees
+ * @param result
+ */
+void compute_total_number_bees_in_ORed_ROIs_12 (unsigned int index_frame, const RunParameters *run, const VectorHistograms *histograms_number_bees, Series *result)
 {
-	Series *result;
-	cout << "  Computing total number of bees in all ROIs using histograms of ROI filtered number of bees images - using raw frames.\n";
-	const string filename = this->user->total_number_bees_in_all_ROIs_raw_filename (this->run);
-	if (exists (filename)) {
-		cout << "    Reading data from file " << filename << "...\n";
-		result = read_series (filename, this->run.number_frames);
+	for (unsigned int i = run->same_colour_level; i < NUMBER_COLOUR_LEVELS; i++) {
+		result->at (index_frame) += histograms_number_bees->at (index_frame).at (i);
 	}
-	else {
-		cout << "    Using histograms of ROI filtered number of bees images...\n";
-		result = new Series (this->run.number_frames, 0);
-		this->run.fold3_frames_ROIs (compute_total_number_bees_in_ROIs_12, &this->run, &histograms_number_bees, result);
-		cout << "    Writing data to file " << filename << "...\n";
-		write_series (filename, *result);
-	}
-	return result;
 }
 
-Series *Experiment::compute_total_number_bees_in_ROIs (const VectorSeries *features_number_bees_bee_speed)
+void Experiment::compute_total_number_bees_in_ORed_ROIs (const string &preprocess_treatment, const VectorHistograms *histograms_number_bees, const string &filename) const
 {
-	Series *result;
-	cout << "  Computing total number of bees in all ROIs...\n";
-	string filename = this->user->total_number_bees_in_all_ROIs_histogram_equalisation (this->run);
-	if (access (filename.c_str (), F_OK) == 0) {
-		cout << "    Reading data from file " << filename << "...\n";
-		result = read_series (filename, this->run.number_frames);
+	cout << "  Computing total number of bees in all ROIs. " << preprocess_treatment << "\n";
+	if (exists (filename)) {
+		cout << "    File already exists, nothing to do.\n";
 	}
 	else {
-		cout << "    Using number of bees and bee movement data...\n";
-		result = new Series (this->run.number_frames, 0);
-		this->run.fold2_frames_ROIs (compute_total_number_bees_in_ROIs_12, features_number_bees_bee_speed, result);
+		cout << "    Using histograms of number bees images...\n";
+		Series result (this->run.number_frames, 0);
+		this->run.fold3_frames (compute_total_number_bees_in_ORed_ROIs_12, &this->run, histograms_number_bees, &result);
 		cout << "    Writing data to file " << filename << "...\n";
-		write_series (filename, *result);
+		write_series (filename, result);
 	}
-	return result;
 }
 
 void check_ROI_pair (unsigned int roi1_number, const Image &roi1_image, unsigned int roi2_number, const Image &roi2_image)
@@ -429,21 +429,6 @@ void compute_features_number_bees_bee_speed_2 (unsigned int index_ROI, unsigned 
 	}
 	result->at (index_number_bees).push_back (number_bees_value);
 	result->at (index_bee_speed).push_back (bee_speed_value);
-}
-
-void compute_total_number_bees_in_ROIs_12 (unsigned int index_frame, unsigned int index_ROI, const RunParameters *run, const VectorHistograms *histograms_number_bees, Series *result)
-{
-	unsigned int index_histogram = index_frame * run->number_ROIs + index_ROI;
-	int number_bees_value = 0;
-	for (unsigned int i = run->same_colour_level; i < NUMBER_COLOUR_LEVELS; i++) {
-		number_bees_value += histograms_number_bees->at (index_histogram).at (i);
-	}
-	result->at (index_frame) += number_bees_value;
-}
-
-void compute_total_number_bees_in_ROIs_12 (unsigned int index_frame, unsigned int index_mask, const VectorSeries *features_number_bees_bee_speed, Series *result)
-{
-	result->at (index_frame) += features_number_bees_bee_speed->at (2 * index_mask).at (index_frame);
 }
 
 Series *read_series (const string &filename, size_t series_length)

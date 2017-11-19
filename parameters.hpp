@@ -24,6 +24,16 @@ public:
 	const unsigned int same_colour_level;
 	RunParameters (const boost::program_options::variables_map &vm);
 	static boost::program_options::options_description program_options ();
+	template<typename A, typename B, typename C>
+	inline void fold3_frames (void (*func) (unsigned int, A, B, C), A acc1, B acc2, C acc3) const
+	{
+		for (unsigned int index_frame = 0; index_frame < this->number_frames; index_frame++) {
+			func (index_frame, acc1, acc2, acc3);
+			fprintf (stdout, "\r      %d", index_frame + 1);
+			fflush (stdout);
+		}
+		fprintf (stdout, "\n");
+	}
 	template<typename A, typename B>
 	inline void fold2_frames_ROIs (void (*func) (unsigned int, unsigned int, A, B), A acc1, B acc2) const
 	{
