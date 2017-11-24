@@ -13,19 +13,34 @@ static vector<cv::Mat> read_masks (const RunParameters &run_parameters, const Us
 
 #define PO_CSV_FILENAME "csv-file"
 #define PO_FRAME_FILE_TYPE "frame-file-type"
+#define PO_MASK_FILE_TYPE "mask-file-type"
+#define PO_BACKGROUND_FILENAME "background-filename"
 #define PO_NUMBER_ROIs "number-ROIs"
 #define PO_DELTA_FRAME "delta-frame"
 #define PO_NUMBER_FRAMES "number-frames"
 #define PO_SAME_COLOUR_THRESHOLD "same-colour-threshold"
+#define PO_MASK_NUMBER_STARTS_AT_0 "mask-number-starts-at-1"
+#define PO_FRAME_FILENAME_PREFIX "frame-filename-prefix"
+#define PO_SUBFOLDER_FRAMES "subfolder-frames"
+#define PO_SUBFOLDER_BACKGROUND "subfolder-background"
+#define PO_SUBFOLDER_MASK "subfolder-mask"
+
 
 RunParameters::RunParameters (const po::variables_map &vm):
    csv_filename (vm [PO_CSV_FILENAME].as<string> ()),
    frame_file_type (vm [PO_FRAME_FILE_TYPE].as<string> ()),
+   mask_file_type (vm [PO_MASK_FILE_TYPE].as<string> ()),
+   background_filename (vm [PO_BACKGROUND_FILENAME].as<string> ()),
    number_ROIs (vm [PO_NUMBER_ROIs].as<unsigned int> ()),
    delta_frame (vm [PO_DELTA_FRAME].as<unsigned int> ()),
    number_frames (vm [PO_NUMBER_FRAMES].as<unsigned int> ()),
    same_colour_threshold (vm [PO_SAME_COLOUR_THRESHOLD].as<unsigned int> ()),
-   same_colour_level (round ((NUMBER_COLOUR_LEVELS * same_colour_threshold) / 100.0))
+   same_colour_level (round ((NUMBER_COLOUR_LEVELS * same_colour_threshold) / 100.0)),
+   mask_number_starts_at_0 (vm.count (PO_MASK_NUMBER_STARTS_AT_0) > 0),
+   frame_filename_prefix (vm [PO_FRAME_FILENAME_PREFIX].as<string> ()),
+   subfolder_frames (verify_slash_at_end (vm [PO_SUBFOLDER_FRAMES].as<string> ())),
+   subfolder_background (verify_slash_at_end (vm [PO_SUBFOLDER_BACKGROUND].as<string> ())),
+   subfolder_mask (verify_slash_at_end (vm [PO_SUBFOLDER_MASK].as<string> ()))
 {
 }
 
@@ -39,14 +54,6 @@ po::options_description RunParameters::program_options ()
 	         ->default_value ("data-analyse.csv")
 	         ->value_name ("FILENAME"),
 	         "CSV file with data of which folders to analyse"
-	         )
-	      (
-	         PO_FRAME_FILE_TYPE",f",
-	         po::value<string> ()
-	         ->required ()
-	         ->default_value ("png")
-	         ->value_name ("EXTENSION"),
-	         "file type of the frame"
 	         )
 	      (
 	         PO_NUMBER_ROIs",r",
@@ -81,14 +88,72 @@ po::options_description RunParameters::program_options ()
 	         "threshold value used when deciding if two colour intensities are equal, percentage value"
 	         )
 	      ;
+	po::options_description logistic ("Options for describing how the files with image data are organised");
+	logistic.add_options ()
+	      (
+	         PO_SUBFOLDER_FRAMES,
+	         po::value<string> ()
+	         ->default_value ("")
+	         ->value_name ("PATH"),
+	         "folder where frames are stored (this is added to the folder of each video to analyse)"
+	         )
+	      (
+	         PO_FRAME_FILENAME_PREFIX,
+	         po::value<string> ()
+	         ->default_value ("frames-")
+	         ->value_name ("NAME"),
+	         "prefix of the frames filename"
+	         )
+	      (
+	         PO_FRAME_FILE_TYPE",f",
+	         po::value<string> ()
+	         ->required ()
+	         ->default_value ("png")
+	         ->value_name ("EXTENSION"),
+	         "file type of the frames"
+	         )
+	      (
+	         PO_SUBFOLDER_MASK,
+	         po::value<string> ()
+	         ->default_value ("")
+	         ->value_name ("PATH"),
+	         "folder where masks are stored (this is added to the folder of each video to analyse)"
+	         )
+	      (
+	         PO_MASK_FILE_TYPE,
+	         po::value<string> ()
+	         ->default_value ("png")
+	         ->value_name ("EXTENSION"),
+	         "file type of the masks"
+	         )
+	      (
+	         PO_MASK_NUMBER_STARTS_AT_0,
+	         "mask numbes start at zero (by default they start at one)"
+	         )
+	      (
+	         PO_SUBFOLDER_BACKGROUND,
+	         po::value<string> ()
+	         ->default_value ("")
+	         ->value_name ("PATH"),
+	         "folder where the background image is stored (this is added to the folder of each video to analyse)"
+	         )
+	      (
+	         PO_BACKGROUND_FILENAME,
+	         po::value<string> ()
+	         ->default_value ("background.png")
+	         ->value_name ("NAME"),
+	         "file name of the background image"
+	         )
+	      ;
 	po::options_description result;
 	result.add (config);
 	result.add (analysis);
+	result.add (logistic);
 	return result;
 }
 
 UserParameters::UserParameters (const RunParameters &run_parameters, const string &folder, unsigned int x1, unsigned int y1, unsigned int x2, unsigned int y2, bool use):
-   folder (folder + verify_slash_at_end (folder)),
+   folder (verify_slash_at_end (folder)),
    x1 (x1),
    y1 (y1),
    x2 (x2),
@@ -121,16 +186,16 @@ static string verify_slash_at_end (const string &folder)
 	if (folder.size () == 0)
 		return "";
 	else if (folder [folder.size () - 1] == '/')
-		return "";
+		return folder;
 	else
-		return "/";
+		return folder + "/";
 }
 
 static vector<Image> read_masks (const RunParameters &run_parameters, const UserParameters &user_parameters)
 {
 	vector<Image> result (run_parameters.number_ROIs);
 	for (unsigned int index_mask = 0; index_mask < run_parameters.number_ROIs; index_mask++) {
-		result [index_mask] = read_image (user_parameters.mask_filename (index_mask));
+		result [index_mask] = read_image (user_parameters.mask_filename (run_parameters, index_mask));
 	}
 	return result;
 }

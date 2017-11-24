@@ -17,11 +17,18 @@ class RunParameters
 public:
 	const std::string csv_filename;
 	const std::string frame_file_type;
+	const std::string mask_file_type;
+	const std::string background_filename;
 	const unsigned int number_ROIs;
 	const unsigned int delta_frame;
 	const unsigned int number_frames;
 	const unsigned int same_colour_threshold;
 	const unsigned int same_colour_level;
+	const bool mask_number_starts_at_0;
+	const std::string frame_filename_prefix;
+	const std::string subfolder_frames;
+	const std::string subfolder_background;
+	const std::string subfolder_mask;
 	RunParameters (const boost::program_options::variables_map &vm);
 	static boost::program_options::options_description program_options ();
 	template<typename A, typename B, typename C>
@@ -106,11 +113,11 @@ public:
 	static UserParameters *parse (const RunParameters &, const std::string &csv_row);
 	inline std::string background_filename (const RunParameters &parameters) const
 	{
-		return folder + "background." + parameters.frame_file_type;
+		return folder + parameters.subfolder_background + parameters.background_filename;
 	}
 	inline std::string frame_filename (const RunParameters &parameters, int index_frame) const
 	{
-		std::string result = this->folder + "frames-";
+		std::string result = this->folder + parameters.subfolder_frames + parameters.frame_filename_prefix;
 		char number[5];
 		sprintf (number, "%04d", index_frame);
 		result += number;
@@ -118,9 +125,9 @@ public:
 		result += parameters.frame_file_type;
 		return result;
 	}
-	inline std::string mask_filename (int index_mask) const
+	inline std::string mask_filename (const RunParameters &parameters, int index_mask) const
 	{
-		return this->folder + "Mask-" + std::to_string (index_mask + 1) + ".png";
+		return this->folder + parameters.subfolder_mask + "Mask-" + std::to_string (index_mask + (parameters.mask_number_starts_at_0 ? 0 : 1)) + "." + parameters.mask_file_type;
 	}
 	/**
 	 * @brief histogram_background_filename Returns the filename that contains the
