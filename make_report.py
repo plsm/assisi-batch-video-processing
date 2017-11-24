@@ -22,7 +22,11 @@ args = parser.parse_args ()
 
 rows = util.load_csv ("data-plots.csv", True)
 
-fd = open ("report-2.html", "w")
+filename = "report_DF={delta_frame}_SCT={same_colour_threshold}.html".format (
+    same_colour_threshold = args.same_colour_threshold,
+    delta_frame = args.delta_frame
+)
+fd = open (filename, "w")
 fd.write ("""<html>
   <head>
     <meta charset="UTF-8">
