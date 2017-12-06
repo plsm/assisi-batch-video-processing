@@ -281,6 +281,15 @@ public:
 		      "_DF=" + std::to_string (parameters.delta_frame) +
 		      "_histogram-equalization.csv";
 	}
+	inline std::string features_average_bee_speed_histogram_equalization_filename (const RunParameters &parameters) const
+	{
+		return
+		      this->folder +
+		      "features-average-bee-speed"
+		      "_SCT=" + std::to_string (parameters.same_colour_threshold) +
+		      "_DF=" + std::to_string (parameters.delta_frame) +
+		      "_histogram-equalization.csv";
+	}
 	inline std::string features_pixel_count_difference_light_calibrated_most_common_colour_filename_method_PLSM (const RunParameters &parameters) const
 	{
 		return

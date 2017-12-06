@@ -24,6 +24,7 @@ private:
 	const bool flag_histograms_frames_masked_ORed_ROIs_number_bees_raw;
 	const bool flag_histograms_frames_masked_ORed_ROIs_number_bees;
 	const bool flag_features_number_bees_AND_bee_speed;
+	const bool flag_feature_average_bee_speed;
 	const bool flag_total_number_bees_in_ROIs_raw;
 	const bool flag_total_number_bees_in_ROIs_HE;
 	void check_ROIs () const;
@@ -52,6 +53,14 @@ private:
 	VectorHistograms *compute_histograms_frames_masked_ROIs_number_bees () const;
 	VectorHistograms *compute_histograms_frames_masked_ROIs_number_bees_raw () const;
 	VectorSeries *compute_features_number_bees_bee_speed (const VectorHistograms &histograms_number_bees, const VectorHistograms &histograms_bee_speed) const;
+	/**
+	 * @brief compute_average_bee_speed Compute the average bee speed for each
+	 * region of interest. This is based on the number of bees and bee speed as
+	 * computed by method compute_features_number_bees_bee_speed
+	 *
+	 * @param features_number_bees_bee_speed
+	 */
+	void compute_feature_average_bee_speed (const VectorSeries &features_number_bees_bee_speed) const;
 	/**
 	 * @brief compute_total_number_bees_in_ORed_ROIs Computes the number of bees in
 	 * all region of interest per video frame. This method uses the histograms of

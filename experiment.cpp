@@ -2,6 +2,7 @@
 #include <iostream>
 #include <fstream>
 #include <queue>
+#include <limits>
 #include <getopt.h>
 #include <sys/stat.h>
 
@@ -11,6 +12,9 @@
 
 using namespace std;
 namespace po = boost::program_options;
+
+typedef std::vector<double> DoubleSeries;
+typedef std::vector<DoubleSeries> VectorDoubleSeries;
 
 void check_ROI_pair (unsigned int roi1_number, const Image &roi1_image, unsigned int roi2_number, const Image &roi2_image);
 
@@ -30,12 +34,15 @@ static void write_series (const string &filename, const Series &s);
 static VectorSeries *read_series (const string &filename, size_t number_series, size_t series_length);
 static void write_series (const string &filename, const VectorSeries &vs);
 
+static void write_series (const string &filename, const VectorDoubleSeries &vs);
+
 static bool exists (const string &filename);
 
 #define PO_CHECK_ROI "check-ROIs"
 #define PO_HISTOGRAMS_FRAMES_MASKED_ORED_ROIS_NUMBER_BEES_RAW "histograms-frames-masked-ORed-ROIs-number-bees-raw"
 #define PO_HISTOGRAMS_FRAMES_MASKED_ORED_ROIS_NUMBER_BEES_HE "histograms-frames-masked-ORed-ROIs-number-bees-HE"
 #define PO_FEATURES_NUMBER_BEES_AND_BEE_SPEED "features-number-bees-AND-bee-speed"
+#define PO_FEATURE_AVERAGE_BEE_SPEED "feature-average-bee-speed"
 #define PO_TOTAL_NUMBER_BEES_IN_ROIS_RAW "total-number-bees-in-ROIs-raw"
 #define PO_TOTAL_NUMBER_BEES_IN_ROIS_HE "total-number-bees-in-ROIs-HE"
 
@@ -46,6 +53,7 @@ Experiment::Experiment (const po::variables_map &vm):
    flag_histograms_frames_masked_ORed_ROIs_number_bees_raw (vm.count (PO_HISTOGRAMS_FRAMES_MASKED_ORED_ROIS_NUMBER_BEES_RAW) > 0),
    flag_histograms_frames_masked_ORed_ROIs_number_bees (vm.count (PO_HISTOGRAMS_FRAMES_MASKED_ORED_ROIS_NUMBER_BEES_HE) > 0),
    flag_features_number_bees_AND_bee_speed (vm.count (PO_FEATURES_NUMBER_BEES_AND_BEE_SPEED) > 0),
+   flag_feature_average_bee_speed (vm.count (PO_FEATURE_AVERAGE_BEE_SPEED ) > 0),
    flag_total_number_bees_in_ROIs_raw (vm.count (PO_TOTAL_NUMBER_BEES_IN_ROIS_RAW) > 0),
    flag_total_number_bees_in_ROIs_HE (vm.count (PO_TOTAL_NUMBER_BEES_IN_ROIS_HE) > 0)
 {
@@ -75,6 +83,11 @@ po::options_description Experiment::program_options ()
 	         PO_FEATURES_NUMBER_BEES_AND_BEE_SPEED,
 	         "create a CSV file with number of bees and bee speed per region of interest "
 	         "using histogram equalization to pre-process the background image and the frames"
+	         )
+	      (
+	         PO_FEATURE_AVERAGE_BEE_SPEED,
+	         "create a CSV file with average bee speed per region of interest "
+	         "using image data that was subject to histogram equalization"
 	         )
 	      (
 	         PO_TOTAL_NUMBER_BEES_IN_ROIS_RAW,
@@ -125,9 +138,11 @@ void Experiment::process_data_plots_file ()
 		           this->user->histograms_frames_masked_ORed_ROIs_number_bees_raw_filename ()
 		           ) : NULL;
 		VectorHistograms *bee_speed =
+		      this->flag_feature_average_bee_speed ||
 		      this->flag_features_number_bees_AND_bee_speed
 		      ? this->compute_histograms_frames_masked_ROIs_bee_speed () : NULL;
 		VectorHistograms *number_bees =
+		      this->flag_feature_average_bee_speed ||
 		      this->flag_features_number_bees_AND_bee_speed
 		      ? this->compute_histograms_frames_masked_ROIs_number_bees () : NULL;
 		VectorHistograms *number_bees_raw =
@@ -135,8 +150,11 @@ void Experiment::process_data_plots_file ()
 		      ? this->compute_histograms_frames_masked_ROIs_number_bees_raw () : NULL;
 		VectorSeries *features =
 		      this->flag_features_number_bees_AND_bee_speed ||
+		      this->flag_feature_average_bee_speed ||
 		      this->flag_total_number_bees_in_ROIs_HE
 		      ? this->compute_features_number_bees_bee_speed (*number_bees, *bee_speed) : NULL;
+		if (this->flag_feature_average_bee_speed)
+			this->compute_feature_average_bee_speed (*features);
 		if (this->flag_total_number_bees_in_ROIs_HE)
 			this->compute_total_number_bees_in_ORed_ROIs (
 		         "Background image and frames were subject to histogram equalization.",
@@ -300,6 +318,38 @@ VectorSeries *Experiment::compute_features_number_bees_bee_speed (const VectorHi
 	}
 	return result;
 }
+
+void compute_average_bee_speed_12 (unsigned int index_frame, unsigned int index_ROI, const RunParameters *parameters, const VectorSeries *features_number_bees_bee_speed, VectorDoubleSeries *result)
+{
+	if (index_frame > parameters->delta_frame) {
+		unsigned int index_number_bees = 2 * index_ROI;
+		unsigned int index_bee_speed = 2 * index_ROI + 1;
+		double number_bees_value = (*features_number_bees_bee_speed) [index_number_bees][index_frame] +
+		      (*features_number_bees_bee_speed) [index_number_bees][index_frame - 1 - parameters->delta_frame];
+		double bee_speed_value = (*features_number_bees_bee_speed) [index_bee_speed][index_frame];
+		double value = number_bees_value == 0 ? 0 : bee_speed_value / number_bees_value;
+		result->at (index_ROI).push_back (value);
+	}
+	else {
+		result->at (index_ROI).push_back (std::numeric_limits<double>::quiet_NaN ());
+	}
+}
+
+void Experiment::compute_feature_average_bee_speed (const VectorSeries &features_number_bees_bee_speed) const
+{
+	cout << "  Computing average bee speed.\n";
+	string filename = this->user->features_average_bee_speed_histogram_equalization_filename (this->run);
+	if (exists (filename)) {
+		cout << "    File already exists, nothing to do.\n";
+	}
+	else {
+		VectorDoubleSeries result (this->run.number_ROIs);
+		this->run.fold3_frames_ROIs (compute_average_bee_speed_12, &this->run, &features_number_bees_bee_speed, &result);
+		write_series (filename, result);
+	}
+}
+
+
 
 /**
  * @brief compute_total_number_bees_in_ORed_ROIs_12 Computes how many bees are
@@ -488,6 +538,24 @@ static void write_series (const string &filename, const VectorSeries &vs)
 			if (series > 0)
 				fprintf (f, ",");
 			fprintf (f, "%d", vs [series][index]);
+		}
+		fprintf (f, "\n");
+	}
+	fclose (f);
+	chmod (filename.c_str (), S_IRUSR);
+}
+
+static void write_series (const string &filename, const VectorDoubleSeries &vs)
+{
+	FILE *f = fopen (filename.c_str (), "w");
+	size_t number_series = vs.size ();
+	size_t series_length = vs [0].size ();
+	for (unsigned int index = 0; index < series_length; index++) {
+		for (size_t series = 0; series < number_series; series++) {
+			if (series > 0)
+				fprintf (f, ",");
+			if (!isnan (vs [series][index]))
+				fprintf (f, "%f", vs [series][index]);
 		}
 		fprintf (f, "\n");
 	}
