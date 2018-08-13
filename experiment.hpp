@@ -25,6 +25,7 @@ private:
 	const bool flag_histograms_frames_masked_ORed_ROIs_number_bees;
 	const bool flag_features_number_bees_AND_bee_speed;
 	const bool flag_feature_average_bee_speed;
+	const bool flag_feature_total_bee_acceleration;
 	const bool flag_total_number_bees_in_ROIs_raw;
 	const bool flag_total_number_bees_in_ROIs_HE;
 	void check_ROIs () const;
@@ -82,6 +83,14 @@ private:
 	 * @param filename The filename where the data is stored
 	 */
 	void compute_total_number_bees_in_ORed_ROIs (const std::string &preprocess_treatment, const VectorHistograms *histograms_number_bees, const std::string &filename) const;
+	/**
+	 * @brief compute_total_bee_aceleration Calculate the acceleration for each
+	 * region of interest. This is based on total bee movement and the difference
+	 * between parameter delta_velocity.
+	 *
+	 * @param features_number_bees_bee_speed
+	 */
+	void compute_feature_total_bee_acceleration (const VectorSeries &features_number_bees_bee_speed) const;
 };
 
 #endif // EXPERIMENT_HPP

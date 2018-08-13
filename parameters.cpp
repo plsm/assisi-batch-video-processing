@@ -19,7 +19,8 @@ static vector<cv::Mat> read_masks (const RunParameters &run_parameters, const Us
 #define PO_DELTA_FRAME "delta-frame"
 #define PO_NUMBER_FRAMES "number-frames"
 #define PO_SAME_COLOUR_THRESHOLD "same-colour-threshold"
-#define PO_MASK_NUMBER_STARTS_AT_0 "mask-number-starts-at-1"
+#define PO_DELTA_VELOCITY "delta-velocity"
+#define PO_MASK_NUMBER_STARTS_AT_0 "mask-number-starts-at-0"
 #define PO_FRAME_FILENAME_PREFIX "frame-filename-prefix"
 #define PO_SUBFOLDER_FRAMES "subfolder-frames"
 #define PO_SUBFOLDER_BACKGROUND "subfolder-background"
@@ -36,6 +37,7 @@ RunParameters::RunParameters (const po::variables_map &vm):
    number_frames (vm [PO_NUMBER_FRAMES].as<unsigned int> ()),
    same_colour_threshold (vm [PO_SAME_COLOUR_THRESHOLD].as<unsigned int> ()),
    same_colour_level (round ((NUMBER_COLOUR_LEVELS * same_colour_threshold) / 100.0)),
+   delta_velocity (vm [PO_DELTA_VELOCITY].as<unsigned int> ()),
    mask_number_starts_at_0 (vm.count (PO_MASK_NUMBER_STARTS_AT_0) > 0),
    frame_filename_prefix (vm [PO_FRAME_FILENAME_PREFIX].as<string> ()),
    subfolder_frames (verify_slash_at_end (vm [PO_SUBFOLDER_FRAMES].as<string> ())),
@@ -86,6 +88,14 @@ po::options_description RunParameters::program_options ()
 	         ->required ()
 	         ->value_name ("PERC"),
 	         "threshold value used when deciding if two colour intensities are equal, percentage value"
+	         )
+	      (
+	         PO_DELTA_VELOCITY",v",
+	         po::value<unsigned int> ()
+	         ->required ()
+	         ->default_value (2)
+	         ->value_name ("V"),
+	         "how many frames apart are used when computing bee acceleration"
 	         )
 	      ;
 	po::options_description logistic ("Options for describing how the files with image data are organised");
@@ -173,7 +183,7 @@ UserParameters *UserParameters::parse (const RunParameters &run_parameters, cons
 		cs.push_back (cell);
 	}
 	if (cs.size () != 6) {
-		cerr << "The number of cells is different from 5!\n";
+		cerr << "The number of cells is different from 6!\n";
 		exit (EXIT_FAILURE);
 	}
 	std::string folder = cs [0];

@@ -43,6 +43,7 @@ static bool exists (const string &filename);
 #define PO_HISTOGRAMS_FRAMES_MASKED_ORED_ROIS_NUMBER_BEES_HE "histograms-frames-masked-ORed-ROIs-number-bees-HE"
 #define PO_FEATURES_NUMBER_BEES_AND_BEE_SPEED "features-number-bees-AND-bee-speed"
 #define PO_FEATURE_AVERAGE_BEE_SPEED "feature-average-bee-speed"
+#define PO_FEATURE_TOTAL_BEE_ACCELERATION "feature-total-bee-acceleration"
 #define PO_TOTAL_NUMBER_BEES_IN_ROIS_RAW "total-number-bees-in-ROIs-raw"
 #define PO_TOTAL_NUMBER_BEES_IN_ROIS_HE "total-number-bees-in-ROIs-HE"
 
@@ -54,6 +55,7 @@ Experiment::Experiment (const po::variables_map &vm):
    flag_histograms_frames_masked_ORed_ROIs_number_bees (vm.count (PO_HISTOGRAMS_FRAMES_MASKED_ORED_ROIS_NUMBER_BEES_HE) > 0),
    flag_features_number_bees_AND_bee_speed (vm.count (PO_FEATURES_NUMBER_BEES_AND_BEE_SPEED) > 0),
    flag_feature_average_bee_speed (vm.count (PO_FEATURE_AVERAGE_BEE_SPEED ) > 0),
+   flag_feature_total_bee_acceleration (vm.count (PO_FEATURE_TOTAL_BEE_ACCELERATION) > 0),
    flag_total_number_bees_in_ROIs_raw (vm.count (PO_TOTAL_NUMBER_BEES_IN_ROIS_RAW) > 0),
    flag_total_number_bees_in_ROIs_HE (vm.count (PO_TOTAL_NUMBER_BEES_IN_ROIS_HE) > 0)
 {
@@ -89,6 +91,10 @@ po::options_description Experiment::program_options ()
 	         "create a CSV file with average bee speed per region of interest "
 	         "using image data that was subject to histogram equalization"
 	         )
+	      (
+	         PO_FEATURE_TOTAL_BEE_ACCELERATION,
+	         "create a CSV file with average bee acceleration per region of interest "
+	         "using image data that was subject to histogram equalization")
 	      (
 	         PO_TOTAL_NUMBER_BEES_IN_ROIS_RAW,
 	         "create a CSV file with the total number of bees in all regions of interest "
@@ -151,6 +157,7 @@ void Experiment::process_data_plots_file ()
 		VectorSeries *features =
 		      this->flag_features_number_bees_AND_bee_speed ||
 		      this->flag_feature_average_bee_speed ||
+		      this->flag_feature_total_bee_acceleration ||
 		      this->flag_total_number_bees_in_ROIs_HE
 		      ? this->compute_features_number_bees_bee_speed (*number_bees, *bee_speed) : NULL;
 		if (this->flag_feature_average_bee_speed)
@@ -166,6 +173,8 @@ void Experiment::process_data_plots_file ()
 		         histograms_total_number_bees_raw,
 		         this->user->total_number_bees_in_all_ROIs_raw_filename (this->run)
 		         );
+		if (this->flag_feature_total_bee_acceleration)
+			this->compute_feature_total_bee_acceleration (*features);
 		delete histograms_total_number_bees;
 		delete histograms_total_number_bees_raw;
 		delete bee_speed;
@@ -192,14 +201,13 @@ void compute_histograms_number_bees_ORed_ROI_masks_1 (
 	preprocessed_current_frame = func (&current_frame_raw);
 	cv::absdiff (*preprocessed_background, *preprocessed_current_frame, number_bees);
 	static Histogram histogram;
-	Image diff = number_bees & *ORed_ROI_masks;
 #ifdef DEBUG
 	cv::imshow ("pre-processed current frame", *preprocessed_current_frame);
 	cv::imshow ("number of bees", number_bees);
 	cv::imshow ("diff", diff);
 	cv::waitKey (0);
 #endif
-	compute_histogram (diff, histogram);
+	compute_histogram (number_bees, *ORed_ROI_masks, histogram);
 	result->push_back (histogram);
 }
 
@@ -349,7 +357,34 @@ void Experiment::compute_feature_average_bee_speed (const VectorSeries &features
 	}
 }
 
+void compute_total_bee_acceleration_12 (unsigned int index_frame, unsigned int index_ROI, const RunParameters *parameters, const VectorSeries *features_number_bees_bee_speed, VectorSeries *result)
+{
+	if (index_frame > parameters->delta_velocity) {
+		unsigned int index_bee_speed = 2 * index_ROI + 1;
+		int bee_speed_value_now = (*features_number_bees_bee_speed) [index_bee_speed][index_frame];
+		int bee_speed_value_then = (*features_number_bees_bee_speed) [index_bee_speed][index_frame - 1 - parameters->delta_velocity];
+		int value = bee_speed_value_now - bee_speed_value_then;
+		result->at (index_ROI).push_back (value);
+	}
+	else {
+		result->at (index_ROI).push_back (std::numeric_limits<int>::quiet_NaN ());
+	}
+}
 
+void Experiment::compute_feature_total_bee_acceleration (const VectorSeries &features_number_bees_bee_speed) const
+{
+	cout << "  Computing total bee acceleration.\n";
+	string filename = this->user->features_total_bee_acceleration_histogram_equalization_filename (this->run);
+	if (exists (filename)) {
+		cout << "    File already exists, nothing to do.\n";
+	}
+	else {
+		VectorSeries result (this->run.number_ROIs);
+		this->run.fold3_frames_ROIs (compute_total_bee_acceleration_12, &this->run, &features_number_bees_bee_speed, &result);
+		cout << "    Writing data to file " << filename << '\n';
+		write_series (filename, result);
+	}
+}
 
 /**
  * @brief compute_total_number_bees_in_ORed_ROIs_12 Computes how many bees are
@@ -421,8 +456,7 @@ void compute_histograms_bee_speed_2 (const Image &ROI_mask, bool enough_frames, 
 {
 	static Histogram histogram;
 	if (enough_frames) {
-		Image diff = *bee_speed & ROI_mask;
-		compute_histogram (diff, histogram);
+		compute_histogram (*bee_speed, ROI_mask, histogram);
 	}
 	else {
 		histogram.assign (NUMBER_COLOUR_LEVELS, -1);
@@ -449,8 +483,7 @@ void compute_histograms_number_bees_raw_1 (const Image &current_frame_raw, const
 void compute_histograms_number_bees_2 (const Image &ROI_mask, Image *number_bees, VectorHistograms *result)
 {
 	static Histogram histogram;
-	Image diff = *number_bees & ROI_mask;
-	compute_histogram (diff, histogram);
+	compute_histogram (*number_bees, ROI_mask, histogram);
 	result->push_back (histogram);
 }
 

@@ -33,6 +33,8 @@ inline const Image *preprocess_raw (const Image *image)
 	return image;
 }
 
+void compute_histogram (const Image &image, const cv::Mat &mask, Histogram &histogram);
+
 void compute_histogram (const Image &image, Histogram &histogram);
 
 #endif

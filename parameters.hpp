@@ -24,6 +24,7 @@ public:
 	const unsigned int number_frames;
 	const unsigned int same_colour_threshold;
 	const unsigned int same_colour_level;
+	const unsigned int delta_velocity;
 	const bool mask_number_starts_at_0;
 	const std::string frame_filename_prefix;
 	const std::string subfolder_frames;
@@ -288,6 +289,16 @@ public:
 		      "features-average-bee-speed"
 		      "_SCT=" + std::to_string (parameters.same_colour_threshold) +
 		      "_DF=" + std::to_string (parameters.delta_frame) +
+		      "_histogram-equalization.csv";
+	}
+	inline std::string features_total_bee_acceleration_histogram_equalization_filename (const RunParameters &parameters) const
+	{
+		return
+		      this->folder +
+		      "features-total-bee-acceleration"
+		      "_SCT=" + std::to_string (parameters.same_colour_threshold) +
+		      "_DF=" + std::to_string (parameters.delta_frame) +
+		      "_DV=" + std::to_string (parameters.delta_velocity) +
 		      "_histogram-equalization.csv";
 	}
 	inline std::string features_pixel_count_difference_light_calibrated_most_common_colour_filename_method_PLSM (const RunParameters &parameters) const
